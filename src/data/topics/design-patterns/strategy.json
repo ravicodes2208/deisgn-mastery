@@ -1,357 +1,457 @@
 {
   "id": "strategy",
   "title": "Strategy Pattern",
+  "category": "behavioral",
   "phase": "design-patterns",
   "order": 1,
   "icon": "♟️",
-  "description": "Swap the algorithm, not the context — define a family of interchangeable algorithms and let the client choose which one to use at runtime",
+  "description": "Define a family of interchangeable algorithms and let the client choose which one to use at runtime.",
   "estimatedTime": "2-3 hours",
-  "prerequisites": [],
 
-  "levels": {
-    "basic": {
-      "title": "Core Intuition",
-      "description": "Why the Strategy pattern exists and the problem it solves",
-      "concepts": [
-        {
-          "id": "the-pain",
-          "title": "The Problem: If-Else Hell",
-          "explanation": "Imagine a checkout system that starts with credit card payments. Then PayPal is added, then UPI, then crypto. Each time, you crack open the same class and add another if-else branch. The class grows to 500+ lines. A junior dev accidentally breaks credit cards while adding crypto. Testing becomes a nightmare because everything is coupled together. This is the pain that Strategy solves.",
-          "realWorldAnalogy": "It's like a restaurant that rebuilds its entire kitchen every time it adds a new dish to the menu. Instead of hiring a new chef who knows the recipe (strategy), they tear down walls and rewire the stove. Absurd, right? That's what if-else branching does to your code.",
-          "keyPoints": [
-            "Adding new behavior forces modification of existing code (violates OCP)",
-            "One giant class has too many reasons to change (violates SRP)",
-            "Testing requires testing ALL branches even when only one changed",
-            "Risk of breaking existing behavior when adding new behavior"
-          ]
-        },
-        {
-          "id": "the-crux",
-          "title": "The Crux: Context Stays, Strategy Swaps",
-          "explanation": "The Strategy pattern says: extract each algorithm into its own class, make them all implement the same interface, and let the context class delegate to whichever strategy is plugged in. The context never changes. The strategy is the moving part. Six words capture the entire pattern: 'The Context stays. The Strategy swaps.'",
-          "realWorldAnalogy": "A power drill (context) stays the same forever. You never rebuild the drill. The drill bit (strategy) is what you swap — Phillips head for Phillips screws, flat head for flat screws, drill bit for making holes. Same drill, different bit, different result.",
-          "keyPoints": [
-            "Context = the stable class that USES a strategy but doesn't know which one",
-            "Strategy Interface = the contract all algorithms must follow",
-            "Concrete Strategies = the interchangeable algorithm implementations",
-            "Client = the code that decides which strategy to plug into the context"
-          ]
-        },
-        {
-          "id": "brain-triggers",
-          "title": "Brain Triggers: Spotting Strategy in Interviews",
-          "explanation": "When you hear certain keywords in a problem statement, your brain should instantly light up with 'Strategy pattern!' These triggers include: 'multiple ways to...', 'different algorithms for...', 'switchable at runtime', 'based on type/mode', 'pluggable', and 'policy/rules that vary'. If the behavior changes but the object using it stays the same, think Strategy.",
-          "keyPoints": [
-            "'multiple ways to...' or 'different algorithms' = Strategy",
-            "'switchable/interchangeable at runtime' = Strategy",
-            "'based on type/mode/region' = Strategy",
-            "'when X happens, do Y' or 'notify/alert' = NOT Strategy (that's Observer)",
-            "Giant if-else or switch deciding which behavior to use = refactor to Strategy"
-          ]
-        }
-      ],
-      "cppCode": {
-        "title": "Strategy Pattern - Basic Implementation in C++",
-        "code": "// Strategy Pattern - Payment System Example\n// WHY: We define a contract so the Context (PaymentProcessor) never depends on\n// concrete payment classes. It only knows this interface exists.\n#include <iostream>\n#include <string>\n#include <memory>\nusing namespace std;\n\n// STEP 1: Strategy Interface (the contract)\n// WHY: Abstract class with pure virtual function serves as our Strategy interface.\n// C++ doesn't have \"interface\" keyword — this is the idiomatic equivalent.\nclass PaymentStrategy {\npublic:\n    // WHY: Virtual destructor is CRITICAL in C++. Without it, deleting a Strategy\n    // through a base pointer causes undefined behavior (memory leak or crash).\n    virtual ~PaymentStrategy() = default;\n\n    // WHY: Pure virtual method — forces every concrete strategy to implement pay().\n    // The \"= 0\" means \"I have no implementation. Subclasses MUST provide one.\"\n    virtual void pay(double amount) = 0;\n};\n\n// STEP 2: Concrete Strategies (the swappable algorithms)\n// WHY: Each payment method is its OWN class. This is SRP — CreditCardPayment\n// knows ONLY about credit cards. If credit card logic changes, nothing else is affected.\nclass CreditCardPayment : public PaymentStrategy {\nprivate:\n    string cardNumber;\n    string cardHolder;\n\npublic:\n    // WHY: Constructor takes card-specific data. Using initializer list for efficiency.\n    // std::move avoids copying strings — transfers ownership instead.\n    CreditCardPayment(string number, string holder)\n        : cardNumber(std::move(number)), cardHolder(std::move(holder)) {}\n\n    // WHY: \"override\" tells compiler \"I'm implementing the base class method.\"\n    // If signature doesn't match, compiler gives an error. Safety net.\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" using Credit Card: ****\" \n             << cardNumber.substr(cardNumber.length() - 4) << endl;\n    }\n};\n\n// WHY: Independent class. Adding PayPal required ZERO changes to CreditCardPayment.\nclass PayPalPayment : public PaymentStrategy {\nprivate:\n    string email;\n\npublic:\n    // WHY: explicit prevents accidental implicit conversions.\n    explicit PayPalPayment(string email) : email(std::move(email)) {}\n\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" using PayPal: \" << email << endl;\n    }\n};\n\nclass CryptoPayment : public PaymentStrategy {\nprivate:\n    string walletAddress;\n\npublic:\n    explicit CryptoPayment(string wallet) : walletAddress(std::move(wallet)) {}\n\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" using Crypto Wallet: \" << walletAddress << endl;\n    }\n};\n\n// STEP 3: Context (the stable shell that NEVER changes)\n// WHY: This class knows NOTHING about credit cards, PayPal, or crypto.\n// It only knows PaymentStrategy (the interface). That's DIP in action.\nclass PaymentProcessor {\nprivate:\n    // WHY: unique_ptr owns the strategy exclusively. When you set a new strategy,\n    // the old one is automatically destroyed. No manual delete needed. RAII.\n    unique_ptr<PaymentStrategy> strategy;\n\npublic:\n    // WHY: Takes ownership via std::move. Clear ownership semantics.\n    void setStrategy(unique_ptr<PaymentStrategy> newStrategy) {\n        strategy = std::move(newStrategy);\n    }\n\n    // WHY: ========== THIS IS THE MAGIC LINE ==========\n    // The processor delegates to whatever strategy is currently set.\n    // This ONE line is why you can add 100 payment methods and NEVER change this class.\n    void processPayment(double amount) {\n        if (!strategy) {\n            throw runtime_error(\"Payment strategy not set!\");\n        }\n        strategy->pay(amount);  // <-- THE MAGIC LINE\n    }\n};\n\nint main() {\n    PaymentProcessor processor;\n\n    // WHY: CLIENT decides the strategy. Not the processor. Not the strategy itself.\n    processor.setStrategy(make_unique<CreditCardPayment>(\"4111111111111234\", \"Ravi Kumar\"));\n    processor.processPayment(99.99);\n\n    // WHY: Swap strategy at RUNTIME. Same processor, different behavior.\n    processor.setStrategy(make_unique<PayPalPayment>(\"ravi@email.com\"));\n    processor.processPayment(49.99);\n\n    // WHY: Adding crypto? New class, zero changes to anything above.\n    processor.setStrategy(make_unique<CryptoPayment>(\"0xABC123DEF456\"));\n    processor.processPayment(199.99);\n\n    return 0;\n}",
-        "explanation": "C++ uses abstract classes with pure virtual functions as the Strategy interface. Smart pointers (unique_ptr) handle memory automatically via RAII. The 'override' keyword ensures compile-time safety. std::move transfers ownership efficiently without copying."
-      },
-      "javaCode": {
-        "title": "Strategy Pattern - Basic Implementation in Java",
-        "code": "// Strategy Pattern - Payment System Example\n// WHY: We define a contract so the Context (PaymentProcessor) never depends on\n// concrete payment classes. It only knows this interface exists.\n\n// STEP 1: Strategy Interface (the contract)\n// WHY: Single method — every payment method, no matter how different internally,\n// boils down to one action: \"process this amount\".\npublic interface PaymentStrategy {\n    void pay(double amount);\n}\n\n// STEP 2: Concrete Strategies (the swappable algorithms)\n// WHY: Each payment method is its OWN class. This is SRP — CreditCardPayment\n// knows ONLY about credit cards. If credit card logic changes, nothing else is affected.\npublic class CreditCardPayment implements PaymentStrategy {\n    // WHY: Credit card needs card details. These are specific to THIS strategy.\n    // Other strategies don't need card numbers. Data stays encapsulated here.\n    private String cardNumber;\n    private String cardHolder;\n\n    // WHY: Constructor injection — provide card details when creating the strategy.\n    // The Context (PaymentProcessor) never sees these details.\n    public CreditCardPayment(String cardNumber, String cardHolder) {\n        this.cardNumber = cardNumber;\n        this.cardHolder = cardHolder;\n    }\n\n    // WHY: The method signature matches the interface exactly (LSP).\n    // The Context calls pay() and doesn't care what's underneath.\n    @Override\n    public void pay(double amount) {\n        String masked = \"****-****-****-\" + cardNumber.substring(cardNumber.length() - 4);\n        System.out.println(\"Paid $\" + amount + \" using Credit Card: \" + masked);\n    }\n}\n\n// WHY: Completely independent class. Adding PayPal required ZERO changes to\n// CreditCardPayment or PaymentProcessor. This is OCP in action.\npublic class PayPalPayment implements PaymentStrategy {\n    // WHY: PayPal needs an email, not a card number. Each strategy carries\n    // only the data IT needs.\n    private String email;\n\n    public PayPalPayment(String email) {\n        this.email = email;\n    }\n\n    @Override\n    public void pay(double amount) {\n        System.out.println(\"Paid $\" + amount + \" using PayPal: \" + email);\n    }\n}\n\n// WHY: 3rd payment method. We did NOT modify CreditCardPayment, PayPalPayment,\n// or PaymentProcessor. We ONLY created a new file. Strategy + OCP.\npublic class CryptoPayment implements PaymentStrategy {\n    private String walletAddress;\n\n    public CryptoPayment(String walletAddress) {\n        this.walletAddress = walletAddress;\n    }\n\n    @Override\n    public void pay(double amount) {\n        System.out.println(\"Paid $\" + amount + \" using Crypto: \" + walletAddress);\n    }\n}\n\n// STEP 3: Context (the stable shell that NEVER changes)\n// WHY: This class knows NOTHING about credit cards, PayPal, or crypto.\n// It only knows PaymentStrategy (the interface). That's DIP.\npublic class PaymentProcessor {\n    // WHY: This field holds the current strategy. Its type is the INTERFACE,\n    // not a concrete class. This single decision enables the entire pattern.\n    private PaymentStrategy strategy;\n\n    // WHY: Strategy is injected from outside. The processor doesn't CREATE strategies.\n    public void setStrategy(PaymentStrategy strategy) {\n        this.strategy = strategy;\n    }\n\n    // WHY: ========== THIS IS THE MAGIC LINE ==========\n    // Delegates to whatever strategy is currently set.\n    // This ONE line is why you can add 100 payment methods and NEVER change this class.\n    public void processPayment(double amount) {\n        if (strategy == null) {\n            throw new IllegalStateException(\"Payment strategy not set!\");\n        }\n        strategy.pay(amount);  // <-- THE MAGIC LINE\n    }\n\n    // STEP 4: Client code — demonstrates swapping strategies at runtime\n    public static void main(String[] args) {\n        PaymentProcessor processor = new PaymentProcessor();\n\n        // CLIENT decides the strategy\n        processor.setStrategy(new CreditCardPayment(\"4111111111111234\", \"Ravi Kumar\"));\n        processor.processPayment(99.99);\n\n        // Swap at runtime — same processor, different behavior\n        processor.setStrategy(new PayPalPayment(\"ravi@email.com\"));\n        processor.processPayment(49.99);\n\n        // New payment method? New class, zero changes above.\n        processor.setStrategy(new CryptoPayment(\"0xABC123DEF456\"));\n        processor.processPayment(199.99);\n    }\n}",
-        "explanation": "Java uses interfaces as the Strategy contract. Each concrete strategy implements the interface with its own algorithm. The Context holds a reference to the interface type (not concrete), enabling runtime swapping. The client injects the desired strategy from outside."
-      },
-      "comparison": [
-        {
-          "aspect": "Strategy Interface",
-          "cpp": "Abstract class with pure virtual: virtual void pay() = 0;",
-          "java": "Interface: public interface PaymentStrategy { void pay(); }"
-        },
-        {
-          "aspect": "Memory Management",
-          "cpp": "std::unique_ptr<PaymentStrategy> for automatic cleanup (RAII)",
-          "java": "Simple reference — garbage collector handles cleanup"
-        },
-        {
-          "aspect": "Strategy Injection",
-          "cpp": "setStrategy(std::move(unique_ptr)) — transfers ownership",
-          "java": "setStrategy(strategy) — simple reference assignment"
-        },
-        {
-          "aspect": "The Magic Line",
-          "cpp": "strategy->pay(amount); // arrow operator for pointer",
-          "java": "strategy.pay(amount); // dot operator for reference"
-        },
-        {
-          "aspect": "New Strategy Creation",
-          "cpp": "make_unique<CreditCardPayment>(args) — heap allocation via smart pointer",
-          "java": "new CreditCardPayment(args) — always heap, GC managed"
-        }
-      ],
-      "practiceQuestions": [
-        {
-          "id": "strategy-basic-q1",
-          "title": "Shipping Cost Calculator",
-          "difficulty": "basic",
-          "description": "Create a Strategy pattern for shipping cost calculation:\n- ShippingStrategy interface with calculateCost(double weight, double distance)\n- StandardShipping: $0.5 per kg per km\n- ExpressShipping: $1.5 per kg per km + $10 flat fee\n- SameDayShipping: $3.0 per kg per km + $25 flat fee\n- ShippingContext that uses the strategy\n- Demo swapping strategies at runtime",
-          "hints": [
-            "Start with the interface — one method: calculateCost(weight, distance)",
-            "Each concrete strategy implements its own pricing formula",
-            "The context just delegates: return strategy.calculateCost(weight, distance)"
-          ],
-          "solutions": {
-            "cpp": "#include <iostream>\n#include <memory>\nusing namespace std;\n\nclass ShippingStrategy {\npublic:\n    virtual ~ShippingStrategy() = default;\n    virtual double calculateCost(double weight, double distance) = 0;\n};\n\nclass StandardShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 0.5 * weight * distance;\n    }\n};\n\nclass ExpressShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 1.5 * weight * distance + 10.0;\n    }\n};\n\nclass SameDayShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 3.0 * weight * distance + 25.0;\n    }\n};\n\nclass ShippingContext {\nprivate:\n    unique_ptr<ShippingStrategy> strategy;\npublic:\n    void setStrategy(unique_ptr<ShippingStrategy> s) {\n        strategy = std::move(s);\n    }\n    double calculate(double weight, double distance) {\n        return strategy->calculateCost(weight, distance);\n    }\n};\n\nint main() {\n    ShippingContext ctx;\n    double weight = 2.0, distance = 100.0;\n\n    ctx.setStrategy(make_unique<StandardShipping>());\n    cout << \"Standard: $\" << ctx.calculate(weight, distance) << endl;\n\n    ctx.setStrategy(make_unique<ExpressShipping>());\n    cout << \"Express: $\" << ctx.calculate(weight, distance) << endl;\n\n    ctx.setStrategy(make_unique<SameDayShipping>());\n    cout << \"Same Day: $\" << ctx.calculate(weight, distance) << endl;\n\n    return 0;\n}",
-            "java": "public interface ShippingStrategy {\n    double calculateCost(double weight, double distance);\n}\n\nclass StandardShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 0.5 * weight * distance;\n    }\n}\n\nclass ExpressShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 1.5 * weight * distance + 10.0;\n    }\n}\n\nclass SameDayShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 3.0 * weight * distance + 25.0;\n    }\n}\n\nclass ShippingContext {\n    private ShippingStrategy strategy;\n\n    public void setStrategy(ShippingStrategy strategy) {\n        this.strategy = strategy;\n    }\n\n    public double calculate(double weight, double distance) {\n        return strategy.calculateCost(weight, distance);\n    }\n\n    public static void main(String[] args) {\n        ShippingContext ctx = new ShippingContext();\n        double weight = 2.0, distance = 100.0;\n\n        ctx.setStrategy(new StandardShipping());\n        System.out.println(\"Standard: $\" + ctx.calculate(weight, distance));\n\n        ctx.setStrategy(new ExpressShipping());\n        System.out.println(\"Express: $\" + ctx.calculate(weight, distance));\n\n        ctx.setStrategy(new SameDayShipping());\n        System.out.println(\"Same Day: $\" + ctx.calculate(weight, distance));\n    }\n}"
-          },
-          "tags": ["strategy", "shipping", "basic"]
-        },
-        {
-          "id": "strategy-basic-q2",
-          "title": "Text Formatter",
-          "difficulty": "basic",
-          "description": "Create a Strategy pattern for text formatting:\n- FormatStrategy interface with format(String text)\n- UpperCaseFormat: converts text to UPPERCASE\n- LowerCaseFormat: converts text to lowercase\n- TitleCaseFormat: capitalizes first letter of each word\n- TextEditor context that applies the format\n- Demo formatting the same text with different strategies",
-          "hints": [
-            "The interface has one method: format(text) returns formatted text",
-            "TitleCase: split by spaces, capitalize first char of each word",
-            "The context stores the text and delegates formatting to the strategy"
-          ],
-          "solutions": {
-            "cpp": "#include <iostream>\n#include <string>\n#include <memory>\n#include <algorithm>\n#include <sstream>\nusing namespace std;\n\nclass FormatStrategy {\npublic:\n    virtual ~FormatStrategy() = default;\n    virtual string format(const string& text) = 0;\n};\n\nclass UpperCaseFormat : public FormatStrategy {\npublic:\n    string format(const string& text) override {\n        string result = text;\n        transform(result.begin(), result.end(), result.begin(), ::toupper);\n        return result;\n    }\n};\n\nclass LowerCaseFormat : public FormatStrategy {\npublic:\n    string format(const string& text) override {\n        string result = text;\n        transform(result.begin(), result.end(), result.begin(), ::tolower);\n        return result;\n    }\n};\n\nclass TitleCaseFormat : public FormatStrategy {\npublic:\n    string format(const string& text) override {\n        string result = text;\n        transform(result.begin(), result.end(), result.begin(), ::tolower);\n        bool capitalize = true;\n        for (char& c : result) {\n            if (capitalize && isalpha(c)) {\n                c = toupper(c);\n                capitalize = false;\n            }\n            if (c == ' ') capitalize = true;\n        }\n        return result;\n    }\n};\n\nclass TextEditor {\nprivate:\n    unique_ptr<FormatStrategy> strategy;\npublic:\n    void setStrategy(unique_ptr<FormatStrategy> s) {\n        strategy = std::move(s);\n    }\n    string applyFormat(const string& text) {\n        return strategy->format(text);\n    }\n};\n\nint main() {\n    TextEditor editor;\n    string text = \"hello world from strategy pattern\";\n\n    editor.setStrategy(make_unique<UpperCaseFormat>());\n    cout << editor.applyFormat(text) << endl;\n\n    editor.setStrategy(make_unique<LowerCaseFormat>());\n    cout << editor.applyFormat(text) << endl;\n\n    editor.setStrategy(make_unique<TitleCaseFormat>());\n    cout << editor.applyFormat(text) << endl;\n\n    return 0;\n}",
-            "java": "public interface FormatStrategy {\n    String format(String text);\n}\n\nclass UpperCaseFormat implements FormatStrategy {\n    public String format(String text) {\n        return text.toUpperCase();\n    }\n}\n\nclass LowerCaseFormat implements FormatStrategy {\n    public String format(String text) {\n        return text.toLowerCase();\n    }\n}\n\nclass TitleCaseFormat implements FormatStrategy {\n    public String format(String text) {\n        String[] words = text.toLowerCase().split(\" \");\n        StringBuilder sb = new StringBuilder();\n        for (String word : words) {\n            if (!word.isEmpty()) {\n                sb.append(Character.toUpperCase(word.charAt(0)))\n                  .append(word.substring(1)).append(\" \");\n            }\n        }\n        return sb.toString().trim();\n    }\n}\n\nclass TextEditor {\n    private FormatStrategy strategy;\n\n    public void setStrategy(FormatStrategy strategy) {\n        this.strategy = strategy;\n    }\n\n    public String applyFormat(String text) {\n        return strategy.format(text);\n    }\n\n    public static void main(String[] args) {\n        TextEditor editor = new TextEditor();\n        String text = \"hello world from strategy pattern\";\n\n        editor.setStrategy(new UpperCaseFormat());\n        System.out.println(editor.applyFormat(text));\n\n        editor.setStrategy(new LowerCaseFormat());\n        System.out.println(editor.applyFormat(text));\n\n        editor.setStrategy(new TitleCaseFormat());\n        System.out.println(editor.applyFormat(text));\n    }\n}"
-          },
-          "tags": ["strategy", "text-formatting", "basic"]
-        }
-      ]
+  "hook": {
+    "crux": "The Context stays. The Strategy swaps.",
+    "oneLiner": "Extract each algorithm into its own class, make them all implement the same interface, and let the context delegate to whichever one is plugged in.",
+    "problemStatement": "Imagine a checkout system that starts with credit card payments. Then PayPal is added, then UPI, then crypto. Each time, you crack open the same class and add another if-else branch. The class grows to 500+ lines. A junior dev accidentally breaks credit cards while adding crypto. Testing becomes a nightmare because everything is coupled together.",
+    "analogy": {
+      "title": "The Power Drill",
+      "description": "A power drill (Context) stays the same forever. You never rebuild the drill. The drill bit (Strategy) is what you swap -- Phillips head for Phillips screws, flat head for flat screws, drill bit for making holes. Same drill, different bit, different result.",
+      "mapping": {
+        "Drill": "Context (PaymentProcessor)",
+        "Drill Bit": "Strategy Interface (PaymentStrategy)",
+        "Phillips Bit": "Concrete Strategy (CreditCardPayment)",
+        "Flat Bit": "Concrete Strategy (PayPalPayment)",
+        "You (choosing the bit)": "Client code"
+      }
     },
+    "participants": [
+      { "name": "Context", "role": "The stable class that USES a strategy but doesn't know which one", "example": "PaymentProcessor" },
+      { "name": "Strategy Interface", "role": "The contract all algorithms must follow", "example": "PaymentStrategy" },
+      { "name": "Concrete Strategies", "role": "The interchangeable algorithm implementations", "example": "CreditCardPayment, PayPalPayment" },
+      { "name": "Client", "role": "The code that decides which strategy to plug into the context", "example": "main() / Controller" }
+    ]
+  },
 
-    "intermediate": {
-      "title": "SOLID Connections & Real-World Usage",
-      "description": "How Strategy connects to SOLID principles, real-world analogies, and LLD interview problems",
-      "concepts": [
-        {
-          "id": "solid-connection",
-          "title": "Strategy and SOLID Principles",
-          "explanation": "Strategy is deeply wired into three SOLID principles. OCP (Open/Closed): Add new strategies without modifying the Context — this is the core reason Strategy exists. DIP (Dependency Inversion): The Context depends on the Strategy interface (abstraction), not concrete classes. LSP (Liskov Substitution): Any concrete strategy is substitutable in the Context — swap CreditCard for PayPal and the Context works identically. SRP sneaks in too — each strategy class has a single responsibility.",
-          "realWorldAnalogy": "A company's tax filing department (Context) hires tax consultants (Strategies) based on country. US tax consultant knows IRS rules, India consultant knows GST rules. The department doesn't restructure when expanding to a new country (OCP). It depends on 'tax consultant' role, not specific people (DIP). Any consultant can be swapped in and the department works the same (LSP).",
-          "keyPoints": [
-            "OCP (PRIMARY): Add new strategies without modifying Context — the core WHY",
-            "DIP: Context depends on abstraction (interface), not concrete strategy classes",
-            "LSP: Any concrete strategy is substitutable — Context doesn't care which",
-            "SRP (bonus): Each strategy has exactly one job"
-          ]
-        },
-        {
-          "id": "pattern-relationships",
-          "title": "Strategy's Pattern Web",
-          "explanation": "Strategy doesn't live alone. Its best friends: Factory (creates the right strategy), Observer (notifies when strategy changes), Decorator (wraps a strategy with extra behavior like logging). Its evil twin: State pattern — they look IDENTICAL in code structure but differ in intent. In Strategy, the CLIENT chooses which algorithm. In State, the OBJECT itself changes its behavior based on internal state transitions. Strategy = YOU choose. State = IT changes itself.",
-          "keyPoints": [
-            "Best Friend: Factory — creates the right strategy based on conditions",
-            "Best Friend: Observer — notifies when strategy changes",
-            "Best Friend: Decorator — wraps strategy with extra behavior",
-            "Evil Twin: State — same structure, different intent (client chooses vs self-transitions)",
-            "Evolution: Strategy evolves into Template Method when algorithms share a skeleton"
-          ]
-        },
-        {
-          "id": "lld-interview-mapping",
-          "title": "Strategy in LLD Interview Problems",
-          "explanation": "Strategy appears in almost every LLD interview problem. In Parking Lot, it handles pricing (hourly vs dynamic vs subscription). In Ride-Sharing, it handles fare calculation (pool vs premium vs regular). In E-Commerce, it handles discounts (percentage vs flat vs BOGO). The pattern is always the same: Context holds Strategy interface, concrete strategies implement different algorithms, client injects the right one.",
-          "keyPoints": [
-            "Parking Lot: PricingStrategy (Hourly, Dynamic, Subscription)",
-            "Ride-Sharing: FareStrategy (Pool, Premium, Regular)",
-            "E-Commerce: DiscountStrategy (Percentage, Flat, BOGO)",
-            "Elevator: SchedulingStrategy (Nearest, ZoneBased, LoadBalanced)",
-            "Cache: EvictionStrategy (LRU, LFU, FIFO)"
-          ]
-        }
-      ],
-      "cppCode": {
-        "title": "Strategy with Factory Pattern in C++",
-        "code": "// Strategy + Factory: Let the Factory decide which strategy to create\n// WHY: In real systems, the client often doesn't pick the strategy manually.\n// A Factory examines conditions and creates the right strategy automatically.\n#include <iostream>\n#include <string>\n#include <memory>\nusing namespace std;\n\n// Strategy Interface\nclass DiscountStrategy {\npublic:\n    virtual ~DiscountStrategy() = default;\n    virtual double applyDiscount(double price) = 0;\n    virtual string getName() = 0;\n};\n\n// Concrete Strategies\nclass NoDiscount : public DiscountStrategy {\npublic:\n    double applyDiscount(double price) override { return price; }\n    string getName() override { return \"No Discount\"; }\n};\n\nclass PercentageDiscount : public DiscountStrategy {\nprivate:\n    double percentage;\npublic:\n    explicit PercentageDiscount(double pct) : percentage(pct) {}\n    double applyDiscount(double price) override {\n        return price * (1.0 - percentage / 100.0);\n    }\n    string getName() override {\n        return to_string((int)percentage) + \"% Off\";\n    }\n};\n\nclass FlatDiscount : public DiscountStrategy {\nprivate:\n    double amount;\npublic:\n    explicit FlatDiscount(double amt) : amount(amt) {}\n    double applyDiscount(double price) override {\n        return max(0.0, price - amount);\n    }\n    string getName() override {\n        return \"$\" + to_string((int)amount) + \" Off\";\n    }\n};\n\n// WHY: Factory decides which strategy based on customer type.\n// The client doesn't need if-else logic — the factory encapsulates it.\nclass DiscountFactory {\npublic:\n    static unique_ptr<DiscountStrategy> createDiscount(const string& customerType) {\n        if (customerType == \"VIP\") return make_unique<PercentageDiscount>(20);\n        if (customerType == \"REGULAR\") return make_unique<PercentageDiscount>(10);\n        if (customerType == \"EMPLOYEE\") return make_unique<FlatDiscount>(50);\n        return make_unique<NoDiscount>();\n    }\n};\n\n// Context\nclass ShoppingCart {\nprivate:\n    unique_ptr<DiscountStrategy> discountStrategy;\n    double total;\npublic:\n    ShoppingCart() : total(0) {}\n    void addItem(double price) { total += price; }\n    void setDiscount(unique_ptr<DiscountStrategy> strategy) {\n        discountStrategy = std::move(strategy);\n    }\n    double checkout() {\n        if (!discountStrategy) return total;\n        double finalPrice = discountStrategy->applyDiscount(total);\n        cout << \"Cart: $\" << total << \" | Discount: \" \n             << discountStrategy->getName() << \" | Final: $\" << finalPrice << endl;\n        return finalPrice;\n    }\n};\n\nint main() {\n    ShoppingCart cart;\n    cart.addItem(100);\n    cart.addItem(50);\n\n    // Factory creates the right strategy based on customer type\n    cart.setDiscount(DiscountFactory::createDiscount(\"VIP\"));\n    cart.checkout();\n\n    cart.setDiscount(DiscountFactory::createDiscount(\"EMPLOYEE\"));\n    cart.checkout();\n\n    cart.setDiscount(DiscountFactory::createDiscount(\"GUEST\"));\n    cart.checkout();\n\n    return 0;\n}",
-        "explanation": "This combines Strategy with Factory pattern. The Factory decides which discount strategy to create based on customer type, so the client code stays clean. The ShoppingCart (Context) doesn't know or care which discount algorithm is applied."
-      },
-      "javaCode": {
-        "title": "Strategy with Factory Pattern in Java",
-        "code": "// Strategy + Factory: Let the Factory decide which strategy to create\n// WHY: In real systems, the client often doesn't pick the strategy manually.\n// A Factory examines conditions and creates the right strategy automatically.\n\npublic interface DiscountStrategy {\n    double applyDiscount(double price);\n    String getName();\n}\n\nclass NoDiscount implements DiscountStrategy {\n    public double applyDiscount(double price) { return price; }\n    public String getName() { return \"No Discount\"; }\n}\n\nclass PercentageDiscount implements DiscountStrategy {\n    private double percentage;\n    public PercentageDiscount(double pct) { this.percentage = pct; }\n    public double applyDiscount(double price) {\n        return price * (1.0 - percentage / 100.0);\n    }\n    public String getName() { return (int) percentage + \"% Off\"; }\n}\n\nclass FlatDiscount implements DiscountStrategy {\n    private double amount;\n    public FlatDiscount(double amt) { this.amount = amt; }\n    public double applyDiscount(double price) {\n        return Math.max(0, price - amount);\n    }\n    public String getName() { return \"$\" + (int) amount + \" Off\"; }\n}\n\n// WHY: Factory decides which strategy based on customer type.\nclass DiscountFactory {\n    public static DiscountStrategy createDiscount(String customerType) {\n        switch (customerType) {\n            case \"VIP\":      return new PercentageDiscount(20);\n            case \"REGULAR\":  return new PercentageDiscount(10);\n            case \"EMPLOYEE\": return new FlatDiscount(50);\n            default:         return new NoDiscount();\n        }\n    }\n}\n\n// Context\nclass ShoppingCart {\n    private DiscountStrategy discountStrategy;\n    private double total = 0;\n\n    public void addItem(double price) { total += price; }\n\n    public void setDiscount(DiscountStrategy strategy) {\n        this.discountStrategy = strategy;\n    }\n\n    public double checkout() {\n        if (discountStrategy == null) return total;\n        double finalPrice = discountStrategy.applyDiscount(total);\n        System.out.println(\"Cart: $\" + total + \" | Discount: \" \n            + discountStrategy.getName() + \" | Final: $\" + finalPrice);\n        return finalPrice;\n    }\n\n    public static void main(String[] args) {\n        ShoppingCart cart = new ShoppingCart();\n        cart.addItem(100);\n        cart.addItem(50);\n\n        // Factory creates the right strategy based on customer type\n        cart.setDiscount(DiscountFactory.createDiscount(\"VIP\"));\n        cart.checkout();\n\n        cart.setDiscount(DiscountFactory.createDiscount(\"EMPLOYEE\"));\n        cart.checkout();\n\n        cart.setDiscount(DiscountFactory.createDiscount(\"GUEST\"));\n        cart.checkout();\n    }\n}",
-        "explanation": "Strategy combined with Factory pattern. The DiscountFactory encapsulates the decision logic for which strategy to create, keeping client code clean. The ShoppingCart (Context) just delegates to whatever strategy is injected."
-      },
-      "comparison": [
-        {
-          "aspect": "Factory Method",
-          "cpp": "static unique_ptr<Strategy> create() — returns smart pointer",
-          "java": "static Strategy create() — returns interface reference"
-        },
-        {
-          "aspect": "Strategy + Factory Combo",
-          "cpp": "Factory returns make_unique<ConcreteStrategy>()",
-          "java": "Factory returns new ConcreteStrategy()"
-        },
-        {
-          "aspect": "Null Safety",
-          "cpp": "if (!strategy) throw runtime_error(...)",
-          "java": "if (strategy == null) throw new IllegalStateException(...)"
-        },
-        {
-          "aspect": "Default Strategy",
-          "cpp": "make_unique<NoDiscount>() — safe default via smart pointer",
-          "java": "new NoDiscount() — safe default, GC managed"
-        }
-      ],
-      "practiceQuestions": [
-        {
-          "id": "strategy-inter-q1",
-          "title": "Ride-Sharing Fare Calculator",
-          "difficulty": "intermediate",
-          "description": "Create a Strategy pattern for ride-sharing fare calculation:\n- FareStrategy interface: calculateFare(double distance, int minutes)\n- PoolFare: $0.5/km + $0.1/min (shared ride discount)\n- RegularFare: $1.0/km + $0.2/min\n- PremiumFare: $2.0/km + $0.5/min + $5 base fee\n- SurgeFare: takes a base FareStrategy and multiplies by surge multiplier (Decorator-like)\n- RideContext with passenger info\n- Use a Factory to select fare based on ride type string",
-          "hints": [
-            "SurgeFare wraps another FareStrategy — it's Strategy + Decorator",
-            "Factory takes a string like 'POOL', 'REGULAR', 'PREMIUM' and returns the right strategy",
-            "RideContext stores passenger details and delegates fare calculation"
-          ],
-          "solutions": {
-            "cpp": "#include <iostream>\n#include <memory>\n#include <string>\nusing namespace std;\n\nclass FareStrategy {\npublic:\n    virtual ~FareStrategy() = default;\n    virtual double calculateFare(double distance, int minutes) = 0;\n    virtual string getName() = 0;\n};\n\nclass PoolFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override {\n        return 0.5 * distance + 0.1 * minutes;\n    }\n    string getName() override { return \"Pool\"; }\n};\n\nclass RegularFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override {\n        return 1.0 * distance + 0.2 * minutes;\n    }\n    string getName() override { return \"Regular\"; }\n};\n\nclass PremiumFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override {\n        return 2.0 * distance + 0.5 * minutes + 5.0;\n    }\n    string getName() override { return \"Premium\"; }\n};\n\nclass SurgeFare : public FareStrategy {\nprivate:\n    unique_ptr<FareStrategy> baseFare;\n    double multiplier;\npublic:\n    SurgeFare(unique_ptr<FareStrategy> base, double mult)\n        : baseFare(std::move(base)), multiplier(mult) {}\n    double calculateFare(double distance, int minutes) override {\n        return baseFare->calculateFare(distance, minutes) * multiplier;\n    }\n    string getName() override {\n        return baseFare->getName() + \" (\" + to_string(multiplier) + \"x surge)\";\n    }\n};\n\nclass FareFactory {\npublic:\n    static unique_ptr<FareStrategy> create(const string& type, double surge = 1.0) {\n        unique_ptr<FareStrategy> fare;\n        if (type == \"POOL\") fare = make_unique<PoolFare>();\n        else if (type == \"PREMIUM\") fare = make_unique<PremiumFare>();\n        else fare = make_unique<RegularFare>();\n        if (surge > 1.0) return make_unique<SurgeFare>(std::move(fare), surge);\n        return fare;\n    }\n};\n\nclass RideContext {\nprivate:\n    string passenger;\n    unique_ptr<FareStrategy> fareStrategy;\npublic:\n    RideContext(string name) : passenger(std::move(name)) {}\n    void setFare(unique_ptr<FareStrategy> fare) { fareStrategy = std::move(fare); }\n    void requestRide(double distance, int minutes) {\n        double cost = fareStrategy->calculateFare(distance, minutes);\n        cout << passenger << \" | \" << fareStrategy->getName()\n             << \" | \" << distance << \"km, \" << minutes << \"min | $\" << cost << endl;\n    }\n};\n\nint main() {\n    RideContext ride(\"Ravi\");\n\n    ride.setFare(FareFactory::create(\"POOL\"));\n    ride.requestRide(10, 20);\n\n    ride.setFare(FareFactory::create(\"PREMIUM\"));\n    ride.requestRide(10, 20);\n\n    ride.setFare(FareFactory::create(\"REGULAR\", 1.5));\n    ride.requestRide(10, 20);\n\n    return 0;\n}",
-            "java": "public interface FareStrategy {\n    double calculateFare(double distance, int minutes);\n    String getName();\n}\n\nclass PoolFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) {\n        return 0.5 * distance + 0.1 * minutes;\n    }\n    public String getName() { return \"Pool\"; }\n}\n\nclass RegularFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) {\n        return 1.0 * distance + 0.2 * minutes;\n    }\n    public String getName() { return \"Regular\"; }\n}\n\nclass PremiumFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) {\n        return 2.0 * distance + 0.5 * minutes + 5.0;\n    }\n    public String getName() { return \"Premium\"; }\n}\n\nclass SurgeFare implements FareStrategy {\n    private FareStrategy baseFare;\n    private double multiplier;\n    public SurgeFare(FareStrategy base, double mult) {\n        this.baseFare = base;\n        this.multiplier = mult;\n    }\n    public double calculateFare(double distance, int minutes) {\n        return baseFare.calculateFare(distance, minutes) * multiplier;\n    }\n    public String getName() { return baseFare.getName() + \" (\" + multiplier + \"x surge)\"; }\n}\n\nclass FareFactory {\n    public static FareStrategy create(String type, double surge) {\n        FareStrategy fare;\n        switch (type) {\n            case \"POOL\":    fare = new PoolFare(); break;\n            case \"PREMIUM\": fare = new PremiumFare(); break;\n            default:        fare = new RegularFare(); break;\n        }\n        if (surge > 1.0) return new SurgeFare(fare, surge);\n        return fare;\n    }\n    public static FareStrategy create(String type) { return create(type, 1.0); }\n}\n\nclass RideContext {\n    private String passenger;\n    private FareStrategy fareStrategy;\n    public RideContext(String name) { this.passenger = name; }\n    public void setFare(FareStrategy fare) { this.fareStrategy = fare; }\n    public void requestRide(double distance, int minutes) {\n        double cost = fareStrategy.calculateFare(distance, minutes);\n        System.out.println(passenger + \" | \" + fareStrategy.getName()\n            + \" | \" + distance + \"km, \" + minutes + \"min | $\" + cost);\n    }\n    public static void main(String[] args) {\n        RideContext ride = new RideContext(\"Ravi\");\n        ride.setFare(FareFactory.create(\"POOL\"));\n        ride.requestRide(10, 20);\n        ride.setFare(FareFactory.create(\"PREMIUM\"));\n        ride.requestRide(10, 20);\n        ride.setFare(FareFactory.create(\"REGULAR\", 1.5));\n        ride.requestRide(10, 20);\n    }\n}"
-          },
-          "tags": ["strategy", "factory", "decorator", "ride-sharing", "intermediate"]
-        }
-      ]
+  "brainTriggers": {
+    "description": "When you hear these keywords in a problem statement, your brain should instantly light up with 'Strategy pattern!'",
+    "triggers": [
+      { "keyword": "multiple ways to...", "example": "Multiple ways to calculate shipping cost", "isStrategy": true },
+      { "keyword": "different algorithms for...", "example": "Different algorithms for sorting data", "isStrategy": true },
+      { "keyword": "switchable at runtime", "example": "User can switch payment method during checkout", "isStrategy": true },
+      { "keyword": "based on type/mode/region", "example": "Pricing varies based on customer type", "isStrategy": true },
+      { "keyword": "pluggable / interchangeable", "example": "Pluggable compression algorithms", "isStrategy": true },
+      { "keyword": "policy/rules that vary", "example": "Discount policy changes for VIP vs regular customers", "isStrategy": true }
+    ],
+    "notStrategy": [
+      { "keyword": "when X happens, notify/alert", "pattern": "Observer", "reason": "That's event-driven notification, not algorithm swapping" },
+      { "keyword": "object changes behavior based on internal state", "pattern": "State", "reason": "State transitions are self-driven, Strategy is client-driven" },
+      { "keyword": "create object without knowing exact type", "pattern": "Factory", "reason": "That's about object creation, not algorithm delegation" }
+    ],
+    "litmusTest": "If the BEHAVIOR changes but the OBJECT using it stays the same, think Strategy."
+  },
+
+  "codeImplementation": {
+    "steps": [
+      { "step": 1, "title": "Define the Strategy Interface", "description": "Create the contract -- one method that every algorithm must implement. Keep it focused: one interface, one job." },
+      { "step": 2, "title": "Create Concrete Strategies", "description": "Each algorithm gets its own class. Each class implements the interface. Each class owns ONLY its logic and data." },
+      { "step": 3, "title": "Build the Context", "description": "The Context holds a reference to the Strategy interface (not concrete class). It delegates work to the strategy. It NEVER knows which concrete strategy it holds." },
+      { "step": 4, "title": "Client Wires It Up", "description": "The client creates the concrete strategy and injects it into the context. The client is the ONLY one who knows which strategy to use." }
+    ],
+    "java": {
+      "title": "Strategy Pattern - Payment System (Java)",
+      "code": "// ============================================================\n// STRATEGY PATTERN - Payment System\n// The Context stays. The Strategy swaps.\n// ============================================================\n\n// STEP 1: Strategy Interface (the contract)\n// WHY: Single method -- every payment method, no matter how different,\n// boils down to one action: \"process this amount\".\npublic interface PaymentStrategy {\n    void pay(double amount);\n}\n\n// STEP 2: Concrete Strategies (the swappable algorithms)\n// WHY: Each payment method is its OWN class. This is SRP --\n// CreditCardPayment knows ONLY about credit cards.\npublic class CreditCardPayment implements PaymentStrategy {\n    // WHY: Credit card needs card details. These are specific to THIS strategy.\n    // Other strategies don't need card numbers. Data stays encapsulated.\n    private String cardNumber;\n    private String cardHolder;\n\n    // WHY: Constructor injection -- provide card details when creating.\n    // The Context (PaymentProcessor) never sees these details.\n    public CreditCardPayment(String cardNumber, String cardHolder) {\n        this.cardNumber = cardNumber;\n        this.cardHolder = cardHolder;\n    }\n\n    // WHY: The method signature matches the interface exactly (LSP).\n    // The Context calls pay() and doesn't care what's underneath.\n    @Override\n    public void pay(double amount) {\n        // WHY: Masking card number -- this is card-specific logic.\n        // Only THIS strategy knows how to display card info safely.\n        String masked = \"****\" + cardNumber.substring(cardNumber.length() - 4);\n        System.out.println(\"Paid $\" + amount + \" via Credit Card: \" + masked);\n    }\n}\n\n// WHY: Completely independent class. Adding PayPal required ZERO changes\n// to CreditCardPayment or PaymentProcessor. This is OCP in action.\npublic class PayPalPayment implements PaymentStrategy {\n    private String email;\n\n    public PayPalPayment(String email) {\n        this.email = email;\n    }\n\n    @Override\n    public void pay(double amount) {\n        System.out.println(\"Paid $\" + amount + \" via PayPal: \" + email);\n    }\n}\n\n// WHY: 3rd payment method. We ONLY created a new file.\n// CreditCard, PayPal, and PaymentProcessor are UNTOUCHED.\npublic class CryptoPayment implements PaymentStrategy {\n    private String walletAddress;\n\n    public CryptoPayment(String walletAddress) {\n        this.walletAddress = walletAddress;\n    }\n\n    @Override\n    public void pay(double amount) {\n        System.out.println(\"Paid $\" + amount + \" via Crypto: \" + walletAddress);\n    }\n}\n\n// STEP 3: Context (the stable shell that NEVER changes)\n// WHY: This class knows NOTHING about credit cards, PayPal, or crypto.\n// It only knows PaymentStrategy (the interface). That's DIP.\npublic class PaymentProcessor {\n    // WHY: Field type is INTERFACE, not concrete class.\n    // This single decision enables the entire pattern.\n    private PaymentStrategy strategy;\n\n    // WHY: Strategy injected from outside. Processor doesn't CREATE strategies.\n    public void setStrategy(PaymentStrategy strategy) {\n        this.strategy = strategy;\n    }\n\n    public void processPayment(double amount) {\n        if (strategy == null) {\n            throw new IllegalStateException(\"Payment strategy not set!\");\n        }\n        // ========== THIS IS THE MAGIC LINE ==========\n        // WHY: Delegates to whatever strategy is currently set.\n        // This ONE line is why you can add 100 payment methods\n        // and NEVER change this class.\n        strategy.pay(amount);\n    }\n}\n\n// STEP 4: Client wires it up\npublic class Main {\n    public static void main(String[] args) {\n        PaymentProcessor processor = new PaymentProcessor();\n\n        // WHY: CLIENT decides the strategy. Not the processor.\n        processor.setStrategy(new CreditCardPayment(\"4111111111111234\", \"Ravi\"));\n        processor.processPayment(99.99);\n\n        // WHY: Swap at RUNTIME. Same processor, different behavior.\n        processor.setStrategy(new PayPalPayment(\"ravi@email.com\"));\n        processor.processPayment(49.99);\n\n        // WHY: New method? New class, zero changes above.\n        processor.setStrategy(new CryptoPayment(\"0xABC123\"));\n        processor.processPayment(199.99);\n    }\n}",
+      "explanation": "Java uses interfaces as the Strategy contract. Each concrete strategy implements the interface. The Context holds a reference to the interface type, enabling runtime swapping. The client injects the desired strategy."
     },
-
-    "advanced": {
-      "title": "Anti-Patterns, Interview Problems & Pattern Combinations",
-      "description": "Common traps, advanced implementations, and how Strategy combines with other patterns in real LLD problems",
-      "concepts": [
-        {
-          "id": "anti-patterns",
-          "title": "Strategy Anti-Patterns (The Traps)",
-          "explanation": "Four common traps when using Strategy: (1) instanceof in Context — if the Context checks which concrete strategy it holds, you've broken the pattern. The Context should be blissfully ignorant. (2) YAGNI — don't use Strategy when you only have one algorithm that won't change. (3) Fat Strategy — a strategy doing validation, logging, and notifications violates SRP. Strategy does ONE thing. (4) Null Strategy — always set a default strategy to avoid NullPointerException.",
-          "keyPoints": [
-            "TRAP: instanceof/getClass in Context = broken pattern. Move logic into strategy itself",
-            "TRAP: YAGNI — only use Strategy when behavior ACTUALLY varies or will grow",
-            "TRAP: Fat Strategy — keep each strategy focused on ONE algorithm, delegate the rest",
-            "FIX: Use Null Object pattern as default strategy to avoid null crashes"
-          ]
-        },
-        {
-          "id": "advanced-combinations",
-          "title": "Strategy in Complex LLD Systems",
-          "explanation": "In real LLD interviews, Strategy rarely appears alone. A Parking Lot uses Strategy for pricing, Factory for vehicle creation, Observer for notifications, and State for spot states. Understanding how patterns combine is what separates junior from senior developers. The key insight: each pattern handles ONE concern. Strategy handles 'which algorithm'. Factory handles 'which object to create'. Observer handles 'who to notify'. They compose naturally because each respects SRP.",
-          "realWorldAnalogy": "A hospital doesn't have one person doing everything. The surgeon (Strategy for treatment), the receptionist (Factory for patient records), the alarm system (Observer for emergencies), and the patient's condition chart (State) all work together. Each has ONE job. That's how patterns compose in LLD.",
-          "keyPoints": [
-            "Strategy + Factory: Factory creates the right strategy based on conditions",
-            "Strategy + Observer: Notify listeners when strategy changes",
-            "Strategy + Decorator: Wrap strategy with cross-cutting concerns (logging, timing)",
-            "Strategy + State: State internally, Strategy externally — know the difference",
-            "In interviews, identify ALL patterns in the system, not just one"
-          ]
-        }
-      ],
-      "cppCode": {
-        "title": "Advanced: Parking Lot Pricing with Strategy in C++",
-        "code": "// Advanced: Parking Lot Pricing — Strategy in a real LLD problem\n// Shows Strategy + Factory + Null Object working together\n#include <iostream>\n#include <string>\n#include <memory>\n#include <ctime>\nusing namespace std;\n\n// Strategy Interface for parking pricing\nclass PricingStrategy {\npublic:\n    virtual ~PricingStrategy() = default;\n    virtual double calculateCost(int hours, const string& vehicleType) = 0;\n    virtual string getName() = 0;\n};\n\n// Hourly flat rate pricing\nclass HourlyPricing : public PricingStrategy {\npublic:\n    double calculateCost(int hours, const string& vehicleType) override {\n        double rate = (vehicleType == \"CAR\") ? 10.0 :\n                      (vehicleType == \"BIKE\") ? 5.0 : 20.0;\n        return rate * hours;\n    }\n    string getName() override { return \"Hourly\"; }\n};\n\n// Dynamic pricing — higher during peak hours\nclass DynamicPricing : public PricingStrategy {\nprivate:\n    double surgeMultiplier;\npublic:\n    explicit DynamicPricing(double surge) : surgeMultiplier(surge) {}\n    double calculateCost(int hours, const string& vehicleType) override {\n        double baseRate = (vehicleType == \"CAR\") ? 10.0 :\n                          (vehicleType == \"BIKE\") ? 5.0 : 20.0;\n        return baseRate * hours * surgeMultiplier;\n    }\n    string getName() override {\n        return \"Dynamic (\" + to_string(surgeMultiplier) + \"x)\";\n    }\n};\n\n// Subscription — flat monthly rate, no per-hour charge\nclass SubscriptionPricing : public PricingStrategy {\npublic:\n    double calculateCost(int hours, const string& vehicleType) override {\n        return 0.0;  // Subscriber pays monthly, not per use\n    }\n    string getName() override { return \"Subscription (Free)\"; }\n};\n\n// Null Object — safe default\nclass NoPricing : public PricingStrategy {\npublic:\n    double calculateCost(int hours, const string& vehicleType) override {\n        cout << \"WARNING: No pricing strategy set!\" << endl;\n        return 0.0;\n    }\n    string getName() override { return \"None\"; }\n};\n\n// Factory to create pricing based on conditions\nclass PricingFactory {\npublic:\n    static unique_ptr<PricingStrategy> create(bool isSubscriber, int hour) {\n        if (isSubscriber) return make_unique<SubscriptionPricing>();\n        if (hour >= 8 && hour <= 10) return make_unique<DynamicPricing>(1.5);\n        if (hour >= 17 && hour <= 19) return make_unique<DynamicPricing>(1.8);\n        return make_unique<HourlyPricing>();\n    }\n};\n\n// Context: Parking Ticket\nclass ParkingTicket {\nprivate:\n    string vehicleType;\n    string vehiclePlate;\n    int entryHour;\n    unique_ptr<PricingStrategy> pricingStrategy;\npublic:\n    ParkingTicket(string type, string plate, int hour, bool isSubscriber)\n        : vehicleType(std::move(type)), vehiclePlate(std::move(plate)),\n          entryHour(hour) {\n        pricingStrategy = PricingFactory::create(isSubscriber, hour);\n    }\n\n    double checkout(int exitHour) {\n        int duration = exitHour - entryHour;\n        double cost = pricingStrategy->calculateCost(duration, vehicleType);\n        cout << \"Vehicle: \" << vehiclePlate << \" (\" << vehicleType << \")\" << endl;\n        cout << \"Duration: \" << duration << \" hours | Pricing: \"\n             << pricingStrategy->getName() << \" | Cost: $\" << cost << endl;\n        cout << \"---\" << endl;\n        return cost;\n    }\n};\n\nint main() {\n    // Regular car during normal hours\n    ParkingTicket t1(\"CAR\", \"MH-12-AB-1234\", 11, false);\n    t1.checkout(15);\n\n    // Car during morning rush (dynamic pricing)\n    ParkingTicket t2(\"CAR\", \"MH-12-CD-5678\", 8, false);\n    t2.checkout(12);\n\n    // Subscriber — free parking\n    ParkingTicket t3(\"CAR\", \"MH-12-EF-9012\", 9, true);\n    t3.checkout(18);\n\n    // Bike during evening rush\n    ParkingTicket t4(\"BIKE\", \"MH-12-GH-3456\", 17, false);\n    t4.checkout(20);\n\n    return 0;\n}",
-        "explanation": "This shows Strategy in a real LLD Parking Lot problem. The PricingFactory automatically selects the right strategy based on subscriber status and time of day. ParkingTicket (Context) just delegates to whatever pricing strategy was assigned. Adding a new pricing model (like weekend pricing) requires only a new class and a factory update — zero changes to ParkingTicket."
-      },
-      "javaCode": {
-        "title": "Advanced: Parking Lot Pricing with Strategy in Java",
-        "code": "// Advanced: Parking Lot Pricing — Strategy in a real LLD problem\n// Shows Strategy + Factory + Null Object working together\n\npublic interface PricingStrategy {\n    double calculateCost(int hours, String vehicleType);\n    String getName();\n}\n\nclass HourlyPricing implements PricingStrategy {\n    public double calculateCost(int hours, String vehicleType) {\n        double rate = vehicleType.equals(\"CAR\") ? 10.0 :\n                      vehicleType.equals(\"BIKE\") ? 5.0 : 20.0;\n        return rate * hours;\n    }\n    public String getName() { return \"Hourly\"; }\n}\n\nclass DynamicPricing implements PricingStrategy {\n    private double surgeMultiplier;\n    public DynamicPricing(double surge) { this.surgeMultiplier = surge; }\n    public double calculateCost(int hours, String vehicleType) {\n        double baseRate = vehicleType.equals(\"CAR\") ? 10.0 :\n                          vehicleType.equals(\"BIKE\") ? 5.0 : 20.0;\n        return baseRate * hours * surgeMultiplier;\n    }\n    public String getName() { return \"Dynamic (\" + surgeMultiplier + \"x)\"; }\n}\n\nclass SubscriptionPricing implements PricingStrategy {\n    public double calculateCost(int hours, String vehicleType) { return 0.0; }\n    public String getName() { return \"Subscription (Free)\"; }\n}\n\nclass NoPricing implements PricingStrategy {\n    public double calculateCost(int hours, String vehicleType) {\n        System.out.println(\"WARNING: No pricing strategy set!\");\n        return 0.0;\n    }\n    public String getName() { return \"None\"; }\n}\n\nclass PricingFactory {\n    public static PricingStrategy create(boolean isSubscriber, int hour) {\n        if (isSubscriber) return new SubscriptionPricing();\n        if (hour >= 8 && hour <= 10) return new DynamicPricing(1.5);\n        if (hour >= 17 && hour <= 19) return new DynamicPricing(1.8);\n        return new HourlyPricing();\n    }\n}\n\nclass ParkingTicket {\n    private String vehicleType;\n    private String vehiclePlate;\n    private int entryHour;\n    private PricingStrategy pricingStrategy;\n\n    public ParkingTicket(String type, String plate, int hour, boolean isSubscriber) {\n        this.vehicleType = type;\n        this.vehiclePlate = plate;\n        this.entryHour = hour;\n        this.pricingStrategy = PricingFactory.create(isSubscriber, hour);\n    }\n\n    public double checkout(int exitHour) {\n        int duration = exitHour - entryHour;\n        double cost = pricingStrategy.calculateCost(duration, vehicleType);\n        System.out.println(\"Vehicle: \" + vehiclePlate + \" (\" + vehicleType + \")\");\n        System.out.println(\"Duration: \" + duration + \" hours | Pricing: \"\n            + pricingStrategy.getName() + \" | Cost: $\" + cost);\n        System.out.println(\"---\");\n        return cost;\n    }\n\n    public static void main(String[] args) {\n        ParkingTicket t1 = new ParkingTicket(\"CAR\", \"MH-12-AB-1234\", 11, false);\n        t1.checkout(15);\n\n        ParkingTicket t2 = new ParkingTicket(\"CAR\", \"MH-12-CD-5678\", 8, false);\n        t2.checkout(12);\n\n        ParkingTicket t3 = new ParkingTicket(\"CAR\", \"MH-12-EF-9012\", 9, true);\n        t3.checkout(18);\n\n        ParkingTicket t4 = new ParkingTicket(\"BIKE\", \"MH-12-GH-3456\", 17, false);\n        t4.checkout(20);\n    }\n}",
-        "explanation": "Real LLD Parking Lot pricing using Strategy + Factory. PricingFactory auto-selects the strategy based on subscriber status and time of day. ParkingTicket (Context) delegates pricing and never changes. Adding weekend pricing or holiday pricing = new class + factory update, zero changes to ParkingTicket."
-      },
-      "comparison": [
-        {
-          "aspect": "Pattern Combination",
-          "cpp": "Strategy + Factory + Null Object — same pattern, different memory model",
-          "java": "Strategy + Factory + Null Object — cleaner syntax, GC managed"
-        },
-        {
-          "aspect": "Null Object Pattern",
-          "cpp": "make_unique<NoPricing>() as safe default",
-          "java": "new NoPricing() as safe default"
-        },
-        {
-          "aspect": "Factory Integration",
-          "cpp": "Returns unique_ptr<PricingStrategy> — ownership transfer",
-          "java": "Returns PricingStrategy reference — GC handles lifecycle"
-        },
-        {
-          "aspect": "Context Initialization",
-          "cpp": "Strategy assigned in constructor via Factory — RAII",
-          "java": "Strategy assigned in constructor via Factory — simple reference"
-        }
-      ],
-      "practiceQuestions": [
-        {
-          "id": "strategy-adv-q1",
-          "title": "Cache Eviction Strategy",
-          "difficulty": "advanced",
-          "description": "Design a cache system with pluggable eviction strategies:\n- EvictionStrategy interface: evict(Cache cache) returns key to evict\n- LRUEviction: evict least recently used\n- LFUEviction: evict least frequently used\n- FIFOEviction: evict first inserted\n- Cache class (Context) with get(), put(), and configurable max size\n- When cache is full, use the eviction strategy to decide what to remove\n- Factory to select strategy based on configuration string",
-          "hints": [
-            "Cache needs to track access time (LRU), frequency (LFU), and insertion order (FIFO)",
-            "The eviction strategy receives the cache's metadata and decides which key to evict",
-            "Use a map for storage and additional data structures per strategy"
-          ],
-          "solutions": {
-            "cpp": "#include <iostream>\n#include <string>\n#include <unordered_map>\n#include <memory>\n#include <climits>\nusing namespace std;\n\nstruct CacheEntry {\n    string value;\n    int frequency;\n    int lastAccessed;\n    int insertOrder;\n};\n\nclass EvictionStrategy {\npublic:\n    virtual ~EvictionStrategy() = default;\n    virtual string selectEviction(const unordered_map<string, CacheEntry>& entries) = 0;\n    virtual string getName() = 0;\n};\n\nclass LRUEviction : public EvictionStrategy {\npublic:\n    string selectEviction(const unordered_map<string, CacheEntry>& entries) override {\n        string lruKey;\n        int minTime = INT_MAX;\n        for (const auto& [key, entry] : entries) {\n            if (entry.lastAccessed < minTime) {\n                minTime = entry.lastAccessed;\n                lruKey = key;\n            }\n        }\n        return lruKey;\n    }\n    string getName() override { return \"LRU\"; }\n};\n\nclass LFUEviction : public EvictionStrategy {\npublic:\n    string selectEviction(const unordered_map<string, CacheEntry>& entries) override {\n        string lfuKey;\n        int minFreq = INT_MAX;\n        for (const auto& [key, entry] : entries) {\n            if (entry.frequency < minFreq) {\n                minFreq = entry.frequency;\n                lfuKey = key;\n            }\n        }\n        return lfuKey;\n    }\n    string getName() override { return \"LFU\"; }\n};\n\nclass FIFOEviction : public EvictionStrategy {\npublic:\n    string selectEviction(const unordered_map<string, CacheEntry>& entries) override {\n        string fifoKey;\n        int minOrder = INT_MAX;\n        for (const auto& [key, entry] : entries) {\n            if (entry.insertOrder < minOrder) {\n                minOrder = entry.insertOrder;\n                fifoKey = key;\n            }\n        }\n        return fifoKey;\n    }\n    string getName() override { return \"FIFO\"; }\n};\n\nclass Cache {\nprivate:\n    int maxSize;\n    int clock = 0;\n    int insertCounter = 0;\n    unordered_map<string, CacheEntry> store;\n    unique_ptr<EvictionStrategy> strategy;\npublic:\n    Cache(int size, unique_ptr<EvictionStrategy> strat)\n        : maxSize(size), strategy(std::move(strat)) {\n        cout << \"Cache created with \" << strategy->getName() << \" eviction\" << endl;\n    }\n    string get(const string& key) {\n        if (store.find(key) == store.end()) return \"MISS\";\n        store[key].frequency++;\n        store[key].lastAccessed = ++clock;\n        return store[key].value;\n    }\n    void put(const string& key, const string& value) {\n        if (store.find(key) != store.end()) {\n            store[key].value = value;\n            store[key].lastAccessed = ++clock;\n            return;\n        }\n        if ((int)store.size() >= maxSize) {\n            string evictKey = strategy->selectEviction(store);\n            cout << \"  Evicting: \" << evictKey << \" (\" << strategy->getName() << \")\" << endl;\n            store.erase(evictKey);\n        }\n        store[key] = {value, 1, ++clock, ++insertCounter};\n        cout << \"  Stored: \" << key << \" = \" << value << endl;\n    }\n};\n\nint main() {\n    auto cache = make_unique<Cache>(3, make_unique<LRUEviction>());\n    cache->put(\"a\", \"1\");\n    cache->put(\"b\", \"2\");\n    cache->put(\"c\", \"3\");\n    cache->get(\"a\");\n    cache->put(\"d\", \"4\"); // evicts b (least recently used)\n    return 0;\n}",
-            "java": "import java.util.*;\n\ninterface EvictionStrategy {\n    String selectEviction(Map<String, int[]> metadata);\n    // metadata: key -> [frequency, lastAccessed, insertOrder]\n    String getName();\n}\n\nclass LRUEviction implements EvictionStrategy {\n    public String selectEviction(Map<String, int[]> metadata) {\n        return metadata.entrySet().stream()\n            .min(Comparator.comparingInt(e -> e.getValue()[1]))\n            .map(Map.Entry::getKey).orElse(null);\n    }\n    public String getName() { return \"LRU\"; }\n}\n\nclass LFUEviction implements EvictionStrategy {\n    public String selectEviction(Map<String, int[]> metadata) {\n        return metadata.entrySet().stream()\n            .min(Comparator.comparingInt(e -> e.getValue()[0]))\n            .map(Map.Entry::getKey).orElse(null);\n    }\n    public String getName() { return \"LFU\"; }\n}\n\nclass FIFOEviction implements EvictionStrategy {\n    public String selectEviction(Map<String, int[]> metadata) {\n        return metadata.entrySet().stream()\n            .min(Comparator.comparingInt(e -> e.getValue()[2]))\n            .map(Map.Entry::getKey).orElse(null);\n    }\n    public String getName() { return \"FIFO\"; }\n}\n\nclass Cache {\n    private int maxSize, clock = 0, insertCounter = 0;\n    private Map<String, String> store = new HashMap<>();\n    private Map<String, int[]> metadata = new HashMap<>();\n    private EvictionStrategy strategy;\n\n    public Cache(int size, EvictionStrategy strategy) {\n        this.maxSize = size;\n        this.strategy = strategy;\n        System.out.println(\"Cache created with \" + strategy.getName() + \" eviction\");\n    }\n    public String get(String key) {\n        if (!store.containsKey(key)) return \"MISS\";\n        int[] meta = metadata.get(key);\n        meta[0]++; meta[1] = ++clock;\n        return store.get(key);\n    }\n    public void put(String key, String value) {\n        if (store.containsKey(key)) {\n            store.put(key, value);\n            metadata.get(key)[1] = ++clock;\n            return;\n        }\n        if (store.size() >= maxSize) {\n            String evictKey = strategy.selectEviction(metadata);\n            System.out.println(\"  Evicting: \" + evictKey + \" (\" + strategy.getName() + \")\");\n            store.remove(evictKey);\n            metadata.remove(evictKey);\n        }\n        store.put(key, value);\n        metadata.put(key, new int[]{1, ++clock, ++insertCounter});\n        System.out.println(\"  Stored: \" + key + \" = \" + value);\n    }\n    public static void main(String[] args) {\n        Cache cache = new Cache(3, new LRUEviction());\n        cache.put(\"a\", \"1\");\n        cache.put(\"b\", \"2\");\n        cache.put(\"c\", \"3\");\n        cache.get(\"a\");\n        cache.put(\"d\", \"4\"); // evicts b (least recently used)\n    }\n}"
-          },
-          "tags": ["strategy", "cache", "eviction", "lru", "lfu", "advanced"]
-        }
-      ]
+    "cpp": {
+      "title": "Strategy Pattern - Payment System (C++)",
+      "code": "// ============================================================\n// STRATEGY PATTERN - Payment System\n// The Context stays. The Strategy swaps.\n// ============================================================\n#include <iostream>\n#include <string>\n#include <memory>\nusing namespace std;\n\n// STEP 1: Strategy Interface\n// WHY: Abstract class with pure virtual function = C++ equivalent of interface.\nclass PaymentStrategy {\npublic:\n    // WHY: Virtual destructor is CRITICAL in C++. Without it, deleting\n    // through a base pointer causes undefined behavior (memory leak/crash).\n    virtual ~PaymentStrategy() = default;\n\n    // WHY: \"= 0\" means pure virtual -- subclasses MUST implement pay().\n    virtual void pay(double amount) = 0;\n};\n\n// STEP 2: Concrete Strategies\n// WHY: Each payment method is its OWN class. SRP -- CreditCardPayment\n// knows ONLY about credit cards.\nclass CreditCardPayment : public PaymentStrategy {\nprivate:\n    string cardNumber;\n    string cardHolder;\npublic:\n    // WHY: std::move avoids copying strings -- transfers ownership.\n    CreditCardPayment(string number, string holder)\n        : cardNumber(std::move(number)), cardHolder(std::move(holder)) {}\n\n    // WHY: \"override\" tells compiler to verify this matches base class.\n    // Catches signature mismatches at compile time. Safety net.\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" via Credit Card: ****\"\n             << cardNumber.substr(cardNumber.length() - 4) << endl;\n    }\n};\n\n// WHY: Adding PayPal required ZERO changes to CreditCardPayment. OCP.\nclass PayPalPayment : public PaymentStrategy {\nprivate:\n    string email;\npublic:\n    // WHY: explicit prevents accidental implicit conversions.\n    explicit PayPalPayment(string email) : email(std::move(email)) {}\n\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" via PayPal: \" << email << endl;\n    }\n};\n\nclass CryptoPayment : public PaymentStrategy {\nprivate:\n    string walletAddress;\npublic:\n    explicit CryptoPayment(string wallet) : walletAddress(std::move(wallet)) {}\n\n    void pay(double amount) override {\n        cout << \"Paid $\" << amount << \" via Crypto: \" << walletAddress << endl;\n    }\n};\n\n// STEP 3: Context\n// WHY: Knows NOTHING about concrete payment types. Only knows the interface.\nclass PaymentProcessor {\nprivate:\n    // WHY: unique_ptr owns the strategy. When you set a new strategy,\n    // the old one is auto-destroyed. No manual delete. RAII.\n    unique_ptr<PaymentStrategy> strategy;\npublic:\n    // WHY: std::move transfers ownership. Clear semantics.\n    void setStrategy(unique_ptr<PaymentStrategy> newStrategy) {\n        strategy = std::move(newStrategy);\n    }\n\n    void processPayment(double amount) {\n        if (!strategy) throw runtime_error(\"Strategy not set!\");\n        // ========== THE MAGIC LINE ==========\n        strategy->pay(amount);\n    }\n};\n\n// STEP 4: Client\nint main() {\n    PaymentProcessor processor;\n\n    processor.setStrategy(make_unique<CreditCardPayment>(\"4111111111111234\", \"Ravi\"));\n    processor.processPayment(99.99);\n\n    processor.setStrategy(make_unique<PayPalPayment>(\"ravi@email.com\"));\n    processor.processPayment(49.99);\n\n    processor.setStrategy(make_unique<CryptoPayment>(\"0xABC123\"));\n    processor.processPayment(199.99);\n\n    return 0;\n}",
+      "explanation": "C++ uses abstract classes with pure virtual functions. Smart pointers (unique_ptr) handle memory via RAII. The 'override' keyword ensures compile-time safety."
+    },
+    "kotlin": {
+      "title": "Strategy Pattern - Payment System (Kotlin)",
+      "code": "// ============================================================\n// STRATEGY PATTERN - Payment System\n// The Context stays. The Strategy swaps.\n// ============================================================\n\n// STEP 1: Strategy Interface\n// WHY: Kotlin interfaces are clean -- no boilerplate, no abstract keyword.\n// This is the contract every payment method must follow.\ninterface PaymentStrategy {\n    fun pay(amount: Double)\n}\n\n// STEP 2: Concrete Strategies\n// WHY: Each class has a single responsibility -- its own payment logic.\n// Data class-like conciseness with constructor properties.\nclass CreditCardPayment(\n    // WHY: private val = immutable, encapsulated. Only this class accesses card details.\n    private val cardNumber: String,\n    private val cardHolder: String\n) : PaymentStrategy {\n\n    // WHY: override keyword is MANDATORY in Kotlin (unlike Java's optional @Override).\n    // Kotlin enforces safety -- you can't accidentally shadow a method.\n    override fun pay(amount: Double) {\n        // WHY: takeLast(4) -- Kotlin's stdlib makes string ops concise and safe.\n        val masked = \"****${cardNumber.takeLast(4)}\"\n        println(\"Paid $$amount via Credit Card: $masked\")\n    }\n}\n\n// WHY: Independent class. Adding PayPal = ZERO changes elsewhere. OCP.\nclass PayPalPayment(\n    private val email: String\n) : PaymentStrategy {\n    override fun pay(amount: Double) {\n        // WHY: String templates ($variable) -- cleaner than concatenation.\n        println(\"Paid $$amount via PayPal: $email\")\n    }\n}\n\nclass CryptoPayment(\n    private val walletAddress: String\n) : PaymentStrategy {\n    override fun pay(amount: Double) {\n        println(\"Paid $$amount via Crypto: $walletAddress\")\n    }\n}\n\n// STEP 3: Context\n// WHY: Context holds the interface type, not concrete. Pure delegation.\nclass PaymentProcessor {\n    // WHY: lateinit = \"I promise to set this before using it.\"\n    // Alternative: nullable with null check (var strategy: PaymentStrategy? = null)\n    private lateinit var strategy: PaymentStrategy\n\n    // WHY: Simple setter. Kotlin properties make this even cleaner.\n    fun setStrategy(strategy: PaymentStrategy) {\n        this.strategy = strategy\n    }\n\n    fun processPayment(amount: Double) {\n        // WHY: ::isInitialized check prevents UninitializedPropertyAccessException.\n        check(::strategy.isInitialized) { \"Payment strategy not set!\" }\n        // ========== THE MAGIC LINE ==========\n        strategy.pay(amount)\n    }\n}\n\n// STEP 4: Client\nfun main() {\n    val processor = PaymentProcessor()\n\n    // WHY: CLIENT decides. val = immutable reference, but we swap via setter.\n    processor.setStrategy(CreditCardPayment(\"4111111111111234\", \"Ravi\"))\n    processor.processPayment(99.99)\n\n    processor.setStrategy(PayPalPayment(\"ravi@email.com\"))\n    processor.processPayment(49.99)\n\n    processor.setStrategy(CryptoPayment(\"0xABC123\"))\n    processor.processPayment(199.99)\n}\n\n// BONUS: Kotlin can use lambdas as strategies (functional approach)\n// WHY: For simple single-method strategies, a lambda IS the strategy.\nfun mainFunctional() {\n    // WHY: typealias makes intent clear -- this IS a payment strategy.\n    // No need for a full interface when the strategy is just one function.\n    val creditCard: (Double) -> Unit = { amount ->\n        println(\"Lambda CC: Paid $$amount\")\n    }\n    val paypal: (Double) -> Unit = { amount ->\n        println(\"Lambda PayPal: Paid $$amount\")\n    }\n\n    var currentStrategy = creditCard\n    currentStrategy(99.99)   // Lambda CC: Paid $99.99\n\n    currentStrategy = paypal\n    currentStrategy(49.99)   // Lambda PayPal: Paid $49.99\n}",
+      "explanation": "Kotlin combines concise syntax with strong safety. Constructor properties eliminate boilerplate, override is mandatory, lateinit handles deferred initialization, and lambdas can serve as lightweight strategies for simple cases."
     }
   },
 
-  "keyDifferences": [
+  "solidConnections": [
     {
-      "title": "Strategy Interface Definition",
-      "cpp": "Abstract class with pure virtual functions and virtual destructor",
-      "java": "Interface with method signatures (clean, no destructor needed)"
+      "principle": "OCP",
+      "fullName": "Open/Closed Principle",
+      "isPrimary": true,
+      "connection": "Add new strategies without modifying the Context. This is the CORE reason Strategy exists.",
+      "example": "Adding CryptoPayment required ZERO changes to PaymentProcessor. We only ADDED a new class.",
+      "icon": "🔓"
     },
     {
-      "title": "Strategy Ownership",
-      "cpp": "unique_ptr<Strategy> — context owns strategy, RAII cleanup",
-      "java": "Strategy reference — garbage collector handles lifecycle"
+      "principle": "DIP",
+      "fullName": "Dependency Inversion Principle",
+      "isPrimary": true,
+      "connection": "Context depends on the Strategy interface (abstraction), not concrete classes.",
+      "example": "PaymentProcessor holds PaymentStrategy (interface), not CreditCardPayment (concrete).",
+      "icon": "🔄"
     },
     {
-      "title": "Runtime Polymorphism",
-      "cpp": "Virtual dispatch via vtable — slight runtime overhead",
-      "java": "Interface dispatch — JIT optimized, similar overhead"
+      "principle": "LSP",
+      "fullName": "Liskov Substitution Principle",
+      "isPrimary": true,
+      "connection": "Any concrete strategy is substitutable in the Context. Swap CreditCard for PayPal and Context works identically.",
+      "example": "processor.setStrategy(new CreditCardPayment(...)) and processor.setStrategy(new PayPalPayment(...)) -- Context doesn't care which.",
+      "icon": "🔀"
     },
     {
-      "title": "Strategy Swapping",
-      "cpp": "std::move transfers ownership, old strategy auto-destroyed",
-      "java": "Simple reference reassignment, GC collects old strategy"
+      "principle": "SRP",
+      "fullName": "Single Responsibility Principle",
+      "isPrimary": false,
+      "connection": "Each strategy class has exactly one job -- its own algorithm. CreditCardPayment doesn't know about PayPal.",
+      "example": "Validation logic for credit cards lives ONLY in CreditCardPayment, not spread across the Context.",
+      "icon": "🎯"
+    }
+  ],
+
+  "lldProblems": [
+    {
+      "id": 1,
+      "problem": "Payment System",
+      "where": "Different payment processing algorithms (credit card, PayPal, UPI, crypto)",
+      "context": "PaymentProcessor",
+      "strategyInterface": "PaymentStrategy",
+      "concreteStrategies": ["CreditCardPayment", "PayPalPayment", "UPIPayment", "CryptoPayment"],
+      "why": "Payment methods are added/removed frequently. Each has completely different processing logic. Client (user) chooses at checkout."
     },
     {
-      "title": "Lambda as Strategy",
-      "cpp": "std::function<void(double)> can hold lambdas as strategies",
-      "java": "Functional interfaces allow lambdas: (amount) -> { ... }"
+      "id": 2,
+      "problem": "Parking Lot",
+      "where": "Pricing calculation varies by vehicle type, time, and subscription",
+      "context": "ParkingTicket",
+      "strategyInterface": "PricingStrategy",
+      "concreteStrategies": ["HourlyPricing", "DynamicPricing", "SubscriptionPricing", "WeekendPricing"],
+      "why": "Parking lots constantly change pricing rules. Peak hours, weekends, subscriptions -- each is a separate algorithm. New pricing = new class."
+    },
+    {
+      "id": 3,
+      "problem": "Ride-Sharing (Uber/Ola)",
+      "where": "Fare calculation differs by ride type",
+      "context": "RideContext",
+      "strategyInterface": "FareStrategy",
+      "concreteStrategies": ["PoolFare", "RegularFare", "PremiumFare", "SurgeFare"],
+      "why": "Fare algorithms change independently. Pool has shared-ride discounts, Premium has base fees. Surge wraps any fare with a multiplier (Strategy + Decorator)."
+    },
+    {
+      "id": 4,
+      "problem": "E-Commerce Discounts",
+      "where": "Discount calculation varies by customer type and promotions",
+      "context": "ShoppingCart",
+      "strategyInterface": "DiscountStrategy",
+      "concreteStrategies": ["PercentageDiscount", "FlatDiscount", "BOGODiscount", "NoDiscount"],
+      "why": "Promotions change weekly. VIP gets 20% off, employees get flat $50, festivals get BOGO. Each is a separate algorithm chosen at checkout."
+    },
+    {
+      "id": 5,
+      "problem": "Elevator System",
+      "where": "Scheduling algorithm decides which elevator serves which request",
+      "context": "ElevatorController",
+      "strategyInterface": "SchedulingStrategy",
+      "concreteStrategies": ["NearestElevator", "ZoneBasedScheduling", "LoadBalancedScheduling"],
+      "why": "Buildings have different needs. A hospital needs nearest-first. An office tower needs zone-based. A mall needs load-balanced. Same controller, different algorithm."
+    },
+    {
+      "id": 6,
+      "problem": "Cache System",
+      "where": "Eviction policy decides which entry to remove when cache is full",
+      "context": "Cache",
+      "strategyInterface": "EvictionStrategy",
+      "concreteStrategies": ["LRUEviction", "LFUEviction", "FIFOEviction", "TTLEviction"],
+      "why": "Different use cases need different eviction. Session cache needs LRU, CDN needs LFU, message queue needs FIFO. The cache itself doesn't change."
+    },
+    {
+      "id": 7,
+      "problem": "Notification System",
+      "where": "Delivery channel varies (email, SMS, push, Slack)",
+      "context": "NotificationService",
+      "strategyInterface": "DeliveryStrategy",
+      "concreteStrategies": ["EmailDelivery", "SMSDelivery", "PushNotification", "SlackDelivery"],
+      "why": "Users choose their preferred channel. New channels (WhatsApp, Teams) are added without touching existing ones. Client preference drives strategy selection."
+    },
+    {
+      "id": 8,
+      "problem": "File Compression",
+      "where": "Compression algorithm varies (ZIP, GZIP, RAR, LZ4)",
+      "context": "FileCompressor",
+      "strategyInterface": "CompressionStrategy",
+      "concreteStrategies": ["ZipCompression", "GzipCompression", "LZ4Compression", "NoCompression"],
+      "why": "Different files need different compression. Text compresses well with GZIP, images need LZ4 for speed. The compressor is the same, the algorithm swaps."
+    },
+    {
+      "id": 9,
+      "problem": "Authentication System",
+      "where": "Auth method varies (password, OAuth, SSO, biometric)",
+      "context": "AuthenticationManager",
+      "strategyInterface": "AuthStrategy",
+      "concreteStrategies": ["PasswordAuth", "OAuthAuth", "SSOAuth", "BiometricAuth"],
+      "why": "Apps support multiple login methods. Enterprise adds SSO, mobile adds biometric. Each auth flow is completely different. Auth manager delegates to the strategy."
+    },
+    {
+      "id": 10,
+      "problem": "Sorting Visualizer",
+      "where": "Sorting algorithm is swappable (bubble, merge, quick, heap)",
+      "context": "SortVisualizer",
+      "strategyInterface": "SortStrategy",
+      "concreteStrategies": ["BubbleSort", "MergeSort", "QuickSort", "HeapSort"],
+      "why": "The visualizer UI stays the same. User picks the algorithm. Each sort has different time complexity and behavior. Perfect Strategy use case -- the textbook example."
+    }
+  ],
+
+  "patternWeb": {
+    "bestFriends": [
+      {
+        "pattern": "Factory",
+        "relationship": "Creates the right strategy based on conditions. Instead of the client doing if-else to pick a strategy, the Factory encapsulates that logic.",
+        "example": "DiscountFactory.create('VIP') returns PercentageDiscount(20)"
+      },
+      {
+        "pattern": "Observer",
+        "relationship": "Notifies listeners when strategy changes. Useful for logging, analytics, or UI updates when the algorithm switches.",
+        "example": "When payment strategy changes, notify the analytics service"
+      },
+      {
+        "pattern": "Decorator",
+        "relationship": "Wraps a strategy with extra behavior (logging, timing, caching) without modifying the strategy itself.",
+        "example": "SurgeFare wraps any FareStrategy with a multiplier"
+      }
+    ],
+    "evilTwin": {
+      "pattern": "State",
+      "similarity": "Identical class structure -- Context holds interface, concrete classes implement it.",
+      "difference": "In Strategy, the CLIENT chooses which algorithm to use. In State, the OBJECT ITSELF changes its behavior based on internal state transitions.",
+      "mnemonic": "Strategy = YOU choose. State = IT changes itself.",
+      "deferredComparison": true,
+      "note": "Full comparison will be added after learning the State pattern."
+    },
+    "evolution": [
+      {
+        "pattern": "Template Method",
+        "direction": "Strategy evolves into Template Method when algorithms share a common skeleton but differ in specific steps.",
+        "when": "If 80% of your strategies share the same code, extract the skeleton into a base class."
+      }
+    ]
+  },
+
+  "antiPatterns": [
+    {
+      "id": "instanceof-in-context",
+      "trap": "instanceof / type-checking in Context",
+      "description": "If the Context checks which concrete strategy it holds (instanceof, getClass, typeof), you've broken the pattern. The Context should be blissfully ignorant.",
+      "badCode": "if (strategy instanceof CreditCardPayment) {\n    // credit card specific logic\n} else if (strategy instanceof PayPalPayment) {\n    // paypal specific logic\n}",
+      "goodCode": "// Move ALL logic into the strategy itself\nstrategy.pay(amount); // Context just delegates",
+      "severity": "critical",
+      "fix": "Move the logic INTO the strategy. If the Context needs to behave differently per strategy, the strategy interface is too narrow -- add methods to it."
+    },
+    {
+      "id": "yagni-overengineering",
+      "trap": "YAGNI -- Strategy when you don't need it",
+      "description": "Don't use Strategy when you only have ONE algorithm that won't change. Over-engineering with patterns is just as bad as under-engineering without them.",
+      "badCode": "// Only one compression algorithm exists in the system\ninterface CompressionStrategy { ... }\nclass GzipOnly implements CompressionStrategy { ... }\n// No other implementations... ever",
+      "goodCode": "// Just call the method directly\nGzipCompressor.compress(data);",
+      "severity": "warning",
+      "fix": "Ask: will this behavior ACTUALLY vary? If yes, Strategy. If not, just call the method. You can always refactor later."
+    },
+    {
+      "id": "fat-strategy",
+      "trap": "Fat Strategy -- SRP violation inside strategies",
+      "description": "A strategy doing validation, logging, notifications, AND the algorithm violates SRP. Strategy does ONE thing -- the algorithm.",
+      "badCode": "@Override\npublic void pay(double amount) {\n    validateCard();           // Not my job\n    logTransaction(amount);   // Not my job\n    processPayment(amount);   // THIS is my job\n    sendReceipt();            // Not my job\n    notifyFraudSystem();      // Not my job\n}",
+      "goodCode": "@Override\npublic void pay(double amount) {\n    // Strategy does ONE thing: process the payment\n    String masked = maskCard(cardNumber);\n    gateway.charge(masked, amount);\n}\n// Validation = separate validator\n// Logging = Decorator around strategy\n// Notifications = Observer pattern",
+      "severity": "critical",
+      "fix": "Strategy does the algorithm. Use Decorator for cross-cutting concerns (logging, timing). Use Observer for notifications. Use a separate Validator."
+    },
+    {
+      "id": "null-strategy-crash",
+      "trap": "No default strategy -- NullPointerException",
+      "description": "Forgetting to set a strategy before calling the Context method causes a NullPointerException / segfault at runtime.",
+      "badCode": "PaymentProcessor processor = new PaymentProcessor();\n// Forgot to set strategy!\nprocessor.processPayment(100); // BOOM: NullPointerException",
+      "goodCode": "// Use Null Object pattern as default\nprivate PaymentStrategy strategy = new NoOpPayment();\n\nclass NoOpPayment implements PaymentStrategy {\n    public void pay(double amount) {\n        System.out.println(\"No payment method set.\");\n    }\n}",
+      "severity": "warning",
+      "fix": "Initialize with a Null Object default strategy. Never leave the strategy field as null."
+    }
+  ],
+
+  "quiz": [
+    {
+      "id": "q1",
+      "type": "recognition",
+      "question": "A class has a switch statement that decides whether to encrypt data using AES, RSA, or Blowfish. What pattern should you use to refactor this?",
+      "options": ["Strategy", "Observer", "Factory", "Singleton"],
+      "correctAnswer": 0,
+      "explanation": "'Different algorithms for encryption' + 'switchable' = Strategy. The EncryptionContext stays stable, the EncryptionStrategy swaps."
+    },
+    {
+      "id": "q2",
+      "type": "debugging",
+      "question": "A developer's Context class has: if (strategy instanceof AESEncryption) { ... }. What's wrong?",
+      "options": [
+        "instanceof in Context breaks the pattern -- Context should be ignorant of concrete types",
+        "Nothing wrong, instanceof is needed for type safety",
+        "Should use getClass() instead of instanceof",
+        "Strategy pattern doesn't support encryption"
+      ],
+      "correctAnswer": 0,
+      "explanation": "If the Context type-checks the strategy, you've broken the pattern. Move the differing logic INTO the strategy itself."
+    },
+    {
+      "id": "q3",
+      "type": "design",
+      "question": "In a ride-sharing app, the user picks between Pool, Regular, and Premium rides. Who should be the CLIENT that chooses the strategy?",
+      "options": [
+        "The controller/UI layer that handles user selection",
+        "The RideContext itself based on internal logic",
+        "The FareStrategy decides which type it is",
+        "A global configuration file"
+      ],
+      "correctAnswer": 0,
+      "explanation": "In Strategy, the CLIENT (controller/UI) decides which strategy to inject. The Context just delegates. If the object decides itself, that's the State pattern."
+    },
+    {
+      "id": "q4",
+      "type": "solid",
+      "question": "Which SOLID principle is the PRIMARY reason Strategy exists?",
+      "options": [
+        "OCP -- extend behavior without modifying existing code",
+        "SRP -- each class has one responsibility",
+        "DIP -- depend on abstractions, not concretions",
+        "ISP -- don't force implementations of unused methods"
+      ],
+      "correctAnswer": 0,
+      "explanation": "OCP is the core driver. Strategy exists so you can ADD new algorithms (extend) without MODIFYING the Context (closed). DIP and LSP are important supporters, but OCP is the WHY."
+    },
+    {
+      "id": "q5",
+      "type": "comparison",
+      "question": "Strategy and State have identical class structures. What's the KEY difference?",
+      "options": [
+        "In Strategy the CLIENT chooses the algorithm; in State the OBJECT transitions itself",
+        "Strategy uses interfaces; State uses abstract classes",
+        "Strategy is behavioral; State is structural",
+        "There is no real difference"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Strategy = YOU choose (client injects). State = IT changes itself (object transitions based on internal state). Same structure, different intent."
+    },
+    {
+      "id": "q6",
+      "type": "application",
+      "question": "A payment strategy's pay() method validates the card, logs the transaction, processes the payment, and sends a receipt. What's the problem?",
+      "options": [
+        "Fat Strategy -- violates SRP. Strategy should only process the payment. Use Decorator for logging, Observer for notifications.",
+        "Nothing wrong -- a strategy should be self-contained",
+        "Should use Template Method instead",
+        "The pay() method needs more parameters"
+      ],
+      "correctAnswer": 0,
+      "explanation": "A strategy should do ONE thing: its algorithm. Validation, logging, and notifications are cross-cutting concerns. Use Decorator for logging, Observer for notifications, and a separate Validator."
+    }
+  ],
+
+  "cheatSheet": {
+    "whenToUse": [
+      "Multiple interchangeable algorithms for the same task",
+      "Behavior needs to be swappable at runtime",
+      "Giant if-else/switch deciding which behavior to execute",
+      "You want to add new behaviors without modifying existing code"
+    ],
+    "whenNotToUse": [
+      "Only one algorithm that won't change (YAGNI)",
+      "The behavior change is state-driven, not client-driven (use State)",
+      "The algorithms share 80%+ of their code (use Template Method)",
+      "You need to notify others about changes (use Observer)"
+    ],
+    "structure": {
+      "Context": "Holds Strategy interface reference, delegates calls",
+      "Strategy": "Interface/abstract class defining the contract",
+      "ConcreteStrategy": "Each algorithm in its own class",
+      "Client": "Creates and injects the chosen strategy into Context"
+    },
+    "sixWordSummary": "The Context stays. The Strategy swaps.",
+    "solidPrinciples": ["OCP (primary)", "DIP", "LSP", "SRP (bonus)"],
+    "codeSmellTrigger": "if-else / switch on type to decide behavior"
+  },
+
+  "practiceQuestions": [
+    {
+      "id": "strategy-basic-q1",
+      "title": "Shipping Cost Calculator",
+      "difficulty": "basic",
+      "description": "Create a Strategy pattern for shipping cost calculation:\n- ShippingStrategy interface with calculateCost(double weight, double distance)\n- StandardShipping: $0.5 per kg per km\n- ExpressShipping: $1.5 per kg per km + $10 flat fee\n- SameDayShipping: $3.0 per kg per km + $25 flat fee\n- ShippingContext that uses the strategy\n- Demo swapping strategies at runtime",
+      "hints": [
+        "Start with the interface -- one method: calculateCost(weight, distance)",
+        "Each concrete strategy implements its own pricing formula",
+        "The context just delegates: return strategy.calculateCost(weight, distance)"
+      ],
+      "solutions": {
+        "java": "public interface ShippingStrategy {\n    double calculateCost(double weight, double distance);\n}\n\nclass StandardShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 0.5 * weight * distance;\n    }\n}\n\nclass ExpressShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 1.5 * weight * distance + 10.0;\n    }\n}\n\nclass SameDayShipping implements ShippingStrategy {\n    public double calculateCost(double weight, double distance) {\n        return 3.0 * weight * distance + 25.0;\n    }\n}\n\nclass ShippingContext {\n    private ShippingStrategy strategy;\n    public void setStrategy(ShippingStrategy s) { this.strategy = s; }\n    public double calculate(double weight, double distance) {\n        return strategy.calculateCost(weight, distance);\n    }\n    public static void main(String[] args) {\n        ShippingContext ctx = new ShippingContext();\n        ctx.setStrategy(new StandardShipping());\n        System.out.println(\"Standard: $\" + ctx.calculate(2.0, 100.0));\n        ctx.setStrategy(new ExpressShipping());\n        System.out.println(\"Express: $\" + ctx.calculate(2.0, 100.0));\n        ctx.setStrategy(new SameDayShipping());\n        System.out.println(\"Same Day: $\" + ctx.calculate(2.0, 100.0));\n    }\n}",
+        "cpp": "#include <iostream>\n#include <memory>\nusing namespace std;\n\nclass ShippingStrategy {\npublic:\n    virtual ~ShippingStrategy() = default;\n    virtual double calculateCost(double weight, double distance) = 0;\n};\n\nclass StandardShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 0.5 * weight * distance;\n    }\n};\n\nclass ExpressShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 1.5 * weight * distance + 10.0;\n    }\n};\n\nclass SameDayShipping : public ShippingStrategy {\npublic:\n    double calculateCost(double weight, double distance) override {\n        return 3.0 * weight * distance + 25.0;\n    }\n};\n\nclass ShippingContext {\nprivate:\n    unique_ptr<ShippingStrategy> strategy;\npublic:\n    void setStrategy(unique_ptr<ShippingStrategy> s) { strategy = std::move(s); }\n    double calculate(double weight, double distance) {\n        return strategy->calculateCost(weight, distance);\n    }\n};\n\nint main() {\n    ShippingContext ctx;\n    ctx.setStrategy(make_unique<StandardShipping>());\n    cout << \"Standard: $\" << ctx.calculate(2.0, 100.0) << endl;\n    ctx.setStrategy(make_unique<ExpressShipping>());\n    cout << \"Express: $\" << ctx.calculate(2.0, 100.0) << endl;\n    ctx.setStrategy(make_unique<SameDayShipping>());\n    cout << \"Same Day: $\" << ctx.calculate(2.0, 100.0) << endl;\n    return 0;\n}"
+      },
+      "tags": ["strategy", "shipping", "basic"]
+    },
+    {
+      "id": "strategy-inter-q1",
+      "title": "Ride-Sharing Fare Calculator (Strategy + Factory + Decorator)",
+      "difficulty": "intermediate",
+      "description": "Create a Strategy pattern for ride-sharing fare calculation:\n- FareStrategy interface: calculateFare(double distance, int minutes)\n- PoolFare: $0.5/km + $0.1/min\n- RegularFare: $1.0/km + $0.2/min\n- PremiumFare: $2.0/km + $0.5/min + $5 base\n- SurgeFare: wraps any FareStrategy with a multiplier (Decorator)\n- FareFactory: creates fare from ride type string\n- RideContext with passenger info",
+      "hints": [
+        "SurgeFare wraps another FareStrategy -- it's Strategy + Decorator",
+        "Factory takes 'POOL', 'REGULAR', 'PREMIUM' and returns the right strategy",
+        "RideContext stores passenger details and delegates fare calculation"
+      ],
+      "solutions": {
+        "java": "public interface FareStrategy {\n    double calculateFare(double distance, int minutes);\n    String getName();\n}\n\nclass PoolFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) { return 0.5 * distance + 0.1 * minutes; }\n    public String getName() { return \"Pool\"; }\n}\n\nclass RegularFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) { return 1.0 * distance + 0.2 * minutes; }\n    public String getName() { return \"Regular\"; }\n}\n\nclass PremiumFare implements FareStrategy {\n    public double calculateFare(double distance, int minutes) { return 2.0 * distance + 0.5 * minutes + 5.0; }\n    public String getName() { return \"Premium\"; }\n}\n\nclass SurgeFare implements FareStrategy {\n    private FareStrategy baseFare;\n    private double multiplier;\n    public SurgeFare(FareStrategy base, double mult) { this.baseFare = base; this.multiplier = mult; }\n    public double calculateFare(double distance, int minutes) { return baseFare.calculateFare(distance, minutes) * multiplier; }\n    public String getName() { return baseFare.getName() + \" (\" + multiplier + \"x surge)\"; }\n}\n\nclass FareFactory {\n    public static FareStrategy create(String type, double surge) {\n        FareStrategy fare = switch (type) {\n            case \"POOL\" -> new PoolFare();\n            case \"PREMIUM\" -> new PremiumFare();\n            default -> new RegularFare();\n        };\n        return surge > 1.0 ? new SurgeFare(fare, surge) : fare;\n    }\n}\n\nclass RideContext {\n    private String passenger;\n    private FareStrategy fareStrategy;\n    public RideContext(String name) { this.passenger = name; }\n    public void setFare(FareStrategy fare) { this.fareStrategy = fare; }\n    public void requestRide(double distance, int minutes) {\n        double cost = fareStrategy.calculateFare(distance, minutes);\n        System.out.println(passenger + \" | \" + fareStrategy.getName() + \" | $\" + cost);\n    }\n}",
+        "cpp": "#include <iostream>\n#include <memory>\n#include <string>\nusing namespace std;\n\nclass FareStrategy {\npublic:\n    virtual ~FareStrategy() = default;\n    virtual double calculateFare(double distance, int minutes) = 0;\n    virtual string getName() = 0;\n};\n\nclass PoolFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override { return 0.5 * distance + 0.1 * minutes; }\n    string getName() override { return \"Pool\"; }\n};\n\nclass RegularFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override { return 1.0 * distance + 0.2 * minutes; }\n    string getName() override { return \"Regular\"; }\n};\n\nclass PremiumFare : public FareStrategy {\npublic:\n    double calculateFare(double distance, int minutes) override { return 2.0 * distance + 0.5 * minutes + 5.0; }\n    string getName() override { return \"Premium\"; }\n};\n\nclass SurgeFare : public FareStrategy {\nprivate:\n    unique_ptr<FareStrategy> baseFare;\n    double multiplier;\npublic:\n    SurgeFare(unique_ptr<FareStrategy> base, double mult) : baseFare(std::move(base)), multiplier(mult) {}\n    double calculateFare(double distance, int minutes) override { return baseFare->calculateFare(distance, minutes) * multiplier; }\n    string getName() override { return baseFare->getName() + \" (surge)\"; }\n};"
+      },
+      "tags": ["strategy", "factory", "decorator", "ride-sharing", "intermediate"]
+    },
+    {
+      "id": "strategy-adv-q1",
+      "title": "Cache Eviction System",
+      "difficulty": "advanced",
+      "description": "Design a cache with pluggable eviction strategies:\n- EvictionStrategy interface: selectEviction(metadata)\n- LRUEviction: evict least recently used\n- LFUEviction: evict least frequently used\n- FIFOEviction: evict first inserted\n- Cache class with get(), put(), configurable max size\n- Use the eviction strategy when cache is full",
+      "hints": [
+        "Cache tracks access time (LRU), frequency (LFU), and insertion order (FIFO)",
+        "The eviction strategy receives metadata and decides which key to evict",
+        "Use a map for storage and pass metadata to the strategy"
+      ],
+      "solutions": {
+        "java": "import java.util.*;\n\ninterface EvictionStrategy {\n    String selectEviction(Map<String, int[]> metadata);\n    String getName();\n}\n\nclass LRUEviction implements EvictionStrategy {\n    public String selectEviction(Map<String, int[]> metadata) {\n        return metadata.entrySet().stream()\n            .min(Comparator.comparingInt(e -> e.getValue()[1]))\n            .map(Map.Entry::getKey).orElse(null);\n    }\n    public String getName() { return \"LRU\"; }\n}\n\nclass LFUEviction implements EvictionStrategy {\n    public String selectEviction(Map<String, int[]> metadata) {\n        return metadata.entrySet().stream()\n            .min(Comparator.comparingInt(e -> e.getValue()[0]))\n            .map(Map.Entry::getKey).orElse(null);\n    }\n    public String getName() { return \"LFU\"; }\n}\n\nclass Cache {\n    private int maxSize, clock = 0, insertCounter = 0;\n    private Map<String, String> store = new HashMap<>();\n    private Map<String, int[]> metadata = new HashMap<>();\n    private EvictionStrategy strategy;\n\n    public Cache(int size, EvictionStrategy strategy) {\n        this.maxSize = size;\n        this.strategy = strategy;\n    }\n    public String get(String key) {\n        if (!store.containsKey(key)) return \"MISS\";\n        int[] meta = metadata.get(key);\n        meta[0]++; meta[1] = ++clock;\n        return store.get(key);\n    }\n    public void put(String key, String value) {\n        if (store.containsKey(key)) { store.put(key, value); return; }\n        if (store.size() >= maxSize) {\n            String evict = strategy.selectEviction(metadata);\n            store.remove(evict); metadata.remove(evict);\n        }\n        store.put(key, value);\n        metadata.put(key, new int[]{1, ++clock, ++insertCounter});\n    }\n}",
+        "cpp": "#include <iostream>\n#include <string>\n#include <unordered_map>\n#include <memory>\n#include <climits>\nusing namespace std;\n\nstruct CacheEntry { string value; int frequency; int lastAccessed; int insertOrder; };\n\nclass EvictionStrategy {\npublic:\n    virtual ~EvictionStrategy() = default;\n    virtual string selectEviction(const unordered_map<string, CacheEntry>& entries) = 0;\n};\n\nclass LRUEviction : public EvictionStrategy {\npublic:\n    string selectEviction(const unordered_map<string, CacheEntry>& entries) override {\n        string key; int minTime = INT_MAX;\n        for (const auto& [k, e] : entries)\n            if (e.lastAccessed < minTime) { minTime = e.lastAccessed; key = k; }\n        return key;\n    }\n};\n\nclass Cache {\nprivate:\n    int maxSize, clock = 0, insertCounter = 0;\n    unordered_map<string, CacheEntry> store;\n    unique_ptr<EvictionStrategy> strategy;\npublic:\n    Cache(int size, unique_ptr<EvictionStrategy> s) : maxSize(size), strategy(std::move(s)) {}\n    void put(const string& key, const string& value) {\n        if (store.count(key)) { store[key].value = value; return; }\n        if ((int)store.size() >= maxSize) {\n            string evict = strategy->selectEviction(store);\n            store.erase(evict);\n        }\n        store[key] = {value, 1, ++clock, ++insertCounter};\n    }\n};"
+      },
+      "tags": ["strategy", "cache", "eviction", "advanced"]
     }
   ],
 
   "bestPractices": [
-    "Keep the Strategy interface focused — one method for one algorithm",
-    "Use a Factory to create strategies when the selection logic is complex",
+    "Keep the Strategy interface focused -- one method for one algorithm",
+    "Use a Factory to create strategies when selection logic is complex",
     "Always provide a Null Object default strategy to avoid null crashes",
-    "Never use instanceof or type-checking on the strategy inside the Context",
-    "Apply YAGNI — only use Strategy when behavior actually varies or is expected to grow",
-    "Each concrete strategy should follow SRP — do one thing well",
-    "Prefer composition (Strategy) over inheritance when you need interchangeable algorithms",
+    "Never use instanceof or type-checking in the Context",
+    "Apply YAGNI -- only use Strategy when behavior actually varies",
+    "Each concrete strategy should follow SRP -- do one thing well",
+    "Prefer composition (Strategy) over inheritance for interchangeable algorithms",
     "The Context should be blissfully ignorant of which concrete strategy it holds"
   ],
 
   "commonMistakes": [
     {
       "mistake": "Using instanceof in the Context to check which strategy is set",
-      "correct": "Move logic into the strategy itself — the Context just delegates"
+      "correct": "Move logic into the strategy itself -- the Context just delegates"
     },
     {
       "mistake": "Putting validation, logging, and notifications inside the strategy",
-      "correct": "Strategy does ONE thing (the algorithm). Use Decorator for cross-cutting concerns"
+      "correct": "Strategy does ONE thing. Use Decorator for cross-cutting concerns"
     },
     {
-      "mistake": "Creating a Strategy pattern when there's only one algorithm that won't change",
-      "correct": "Ask the YAGNI question: will this actually vary? If not, just call the method directly"
+      "mistake": "Creating Strategy when there's only one algorithm that won't change",
+      "correct": "Ask YAGNI: will this actually vary? If not, just call the method directly"
     },
     {
-      "mistake": "Forgetting to set a strategy before calling the Context method (NullPointerException)",
+      "mistake": "Forgetting to set a strategy before calling the Context method",
       "correct": "Initialize with a Null Object default: private Strategy s = new NoOpStrategy()"
     }
   ]

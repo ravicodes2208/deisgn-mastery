@@ -5,6 +5,7 @@ import Navbar from './components/common/Navbar'
 import Sidebar from './components/common/Sidebar'
 import Home from './pages/Home'
 import TopicPage from './pages/TopicPage'
+import PatternPage from './pages/PatternPage'
 import PracticePage from './pages/PracticePage'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
             <main className="flex-1 ml-64 p-6">
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/topic/design-patterns/:topicId" element={<PatternPage />} />
                 <Route path="/topic/:phase/:topicId" element={<TopicPage />} />
                 <Route path="/practice/:phase/:topicId" element={<PracticePage />} />
               </Routes>
