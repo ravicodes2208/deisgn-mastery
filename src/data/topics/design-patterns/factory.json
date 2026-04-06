@@ -842,5 +842,305 @@
       "code": "// ABSTRACT FACTORY: Creates FAMILIES of related objects.\n// India: UPI + GST Receipt + VPA Validator\n// US: Credit Card + US Invoice + Luhn Validator\n// Can't mix India processor with US receipt -- they vary TOGETHER.\n// USE WHEN: products must be CONSISTENT within a theme/region/OS.\n\n// ===== Product Family Interfaces =====\ninterface PaymentProcessor {\n    void charge(double amount);\n    String getName();\n}\n\ninterface Receipt {\n    void generate(String txnId, double amount);\n}\n\ninterface PaymentValidator {\n    boolean validate(String details);\n}\n\n// ===== India Family =====\nclass UPIProcessor implements PaymentProcessor {\n    public void charge(double amount) {\n        System.out.println(\"  [UPI] Charged Rs.\" + amount + \" via NPCI\");\n    }\n    public String getName() { return \"UPI\"; }\n}\n\nclass IndiaReceipt implements Receipt {\n    public void generate(String txnId, double amount) {\n        double gst = amount * 0.18;\n        System.out.println(\"  [GST Invoice] \" + txnId + \" | Rs.\" + amount + \" + GST Rs.\" + String.format(\"%.2f\", gst));\n    }\n}\n\nclass IndiaValidator implements PaymentValidator {\n    public boolean validate(String details) {\n        boolean ok = details.contains(\"@\");\n        System.out.println(\"  [VPA Check] \" + details + \" -> \" + (ok ? \"VALID\" : \"INVALID\"));\n        return ok;\n    }\n}\n\n// ===== US Family =====\nclass CreditCardProcessor implements PaymentProcessor {\n    public void charge(double amount) {\n        System.out.println(\"  [Visa] Charged $\" + amount + \" via card network\");\n    }\n    public String getName() { return \"Credit Card\"; }\n}\n\nclass USReceipt implements Receipt {\n    public void generate(String txnId, double amount) {\n        System.out.println(\"  [US Invoice] \" + txnId + \" | $\" + amount + \" + state tax\");\n    }\n}\n\nclass USValidator implements PaymentValidator {\n    public boolean validate(String details) {\n        boolean ok = details.length() >= 13;\n        System.out.println(\"  [Luhn] ****\" + details.substring(details.length() - 4) + \" -> \" + (ok ? \"VALID\" : \"INVALID\"));\n        return ok;\n    }\n}\n\n// ===== Abstract Factory =====\n// WHY: Each country needs ALL THREE products to be consistent.\n// IndiaPaymentFactory guarantees: UPI + GST + VPA -- always together.\ninterface PaymentFactory {\n    PaymentProcessor createProcessor();\n    Receipt createReceipt();\n    PaymentValidator createValidator();\n}\n\nclass IndiaPaymentFactory implements PaymentFactory {\n    public PaymentProcessor createProcessor() { return new UPIProcessor(); }\n    public Receipt createReceipt() { return new IndiaReceipt(); }\n    public PaymentValidator createValidator() { return new IndiaValidator(); }\n}\n\nclass USPaymentFactory implements PaymentFactory {\n    public PaymentProcessor createProcessor() { return new CreditCardProcessor(); }\n    public Receipt createReceipt() { return new USReceipt(); }\n    public PaymentValidator createValidator() { return new USValidator(); }\n}\n\n// ===== Client -- SAME code works for ANY country =====\nclass CheckoutService {\n    private final PaymentFactory factory;\n\n    CheckoutService(PaymentFactory factory) { this.factory = factory; }\n\n    void checkout(String paymentDetails, double amount) {\n        PaymentValidator validator = factory.createValidator();\n        PaymentProcessor processor = factory.createProcessor();\n        Receipt receipt = factory.createReceipt();\n\n        System.out.println(\"=== \" + processor.getName() + \" Checkout ===\");\n        if (!validator.validate(paymentDetails)) {\n            System.out.println(\"  REJECTED\");\n            return;\n        }\n        processor.charge(amount);\n        receipt.generate(\"TXN-\" + System.currentTimeMillis(), amount);\n        System.out.println(\"=== Done ===\");\n    }\n}\n\n// Factory of Factories -- selects the right country\nclass PaymentFactoryProvider {\n    public static PaymentFactory getFactory(String country) {\n        return switch (country.toUpperCase()) {\n            case \"INDIA\" -> new IndiaPaymentFactory();\n            case \"US\"    -> new USPaymentFactory();\n            default -> throw new IllegalArgumentException(\"Unknown: \" + country);\n        };\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(\"--- India Checkout ---\");\n        CheckoutService india = new CheckoutService(PaymentFactoryProvider.getFactory(\"INDIA\"));\n        india.checkout(\"ravi@upi\", 999.0);\n\n        System.out.println();\n\n        System.out.println(\"--- US Checkout ---\");\n        CheckoutService us = new CheckoutService(PaymentFactoryProvider.getFactory(\"US\"));\n        us.checkout(\"4111111111111234\", 49.99);\n    }\n}",
       "explanation": "Abstract Factory creates FAMILIES of related objects that must stay consistent. IndiaPaymentFactory always returns UPI + GST Receipt + VPA Validator -- never mixed with US products. Use when products vary TOGETHER by theme, region, or platform. Simple Factory creates ONE product type. Abstract Factory creates a coordinated FAMILY."
     }
+  },
+  "explanation": {
+    "title": "Factory Pattern: The Complete Walkthrough",
+    "subtitle": "From scattered if-else to clean creation -- an interactive discussion that builds the pattern step by step, through questions, doubts, and aha moments.",
+    "readTime": "15 min read",
+    "sections": [
+      {
+        "id": "scattered-creation",
+        "title": "10 Services, 10 Copies of the Same if-else",
+        "content": [
+          {
+            "type": "text",
+            "value": "Imagine you have OrderService, PaymentService, ShippingService, ReturnService, ReportService... all 10 of them need to send notifications. Each one has this exact same code:"
+          },
+          {
+            "type": "code",
+            "title": "The Problem: Scattered Creation",
+            "value": "class OrderService {\n    void process(Order order) {\n        Notification n;\n        if (type.equals(\"EMAIL\"))    n = new EmailNotification();\n        else if (type.equals(\"SMS\")) n = new SMSNotification();\n        else if (type.equals(\"PUSH\")) n = new PushNotification();\n        n.send(\"Order \" + order.getId() + \" confirmed!\");\n    }\n}\n\nclass PaymentService {\n    void charge(Payment p) {\n        Notification n;\n        if (type.equals(\"EMAIL\"))    n = new EmailNotification();  // same if-else\n        else if (type.equals(\"SMS\")) n = new SMSNotification();    // copy-pasted\n        else if (type.equals(\"PUSH\")) n = new PushNotification();  // everywhere\n        n.send(\"Payment of $\" + p.getAmount() + \" received!\");\n    }\n}\n// ... same thing in ShippingService, ReturnService, ReportService..."
+          },
+          {
+            "type": "text",
+            "value": "Now the PM says \"add WhatsApp notifications.\" You touch 10 files. Constructor of SMSNotification changes? 10 files again. Testing? Every service is tightly coupled to every notification type."
+          },
+          {
+            "type": "insight",
+            "value": "The real problem isn't the if-else itself -- it's that creation logic is SCATTERED across 10 places. One change ripples everywhere."
+          }
+        ]
+      },
+      {
+        "id": "strategy-confusion",
+        "title": "\"Hold on... Isn't This Strategy Pattern?\"",
+        "content": [
+          {
+            "type": "qa",
+            "question": "We created a Notification interface and concrete implementations (EmailNotification, SMSNotification). We're swapping them based on type. That's the Strategy pattern, right? How are we going towards Factory?",
+            "answer": "You're right to notice the similarity! Strategy and Factory both use interfaces + concrete implementations. But they solve different problems:\n\nStrategy = WHICH algorithm to RUN on an existing object (behavior swapping)\nFactory = WHICH object to CREATE from scratch (creation selection)\n\nStrategy gave us the interface and the concrete classes. But WHO decides which concrete class to instantiate? That selection logic -- the if-else that picks 'new EmailNotification()' vs 'new SMSNotification()' -- that's Factory's job.\n\nStrategy designs the menu. Factory takes your order from it."
+          },
+          {
+            "type": "code",
+            "title": "The Difference",
+            "value": "// STRATEGY: swap behavior on an EXISTING context\nnotificationService.setStrategy(new EmailStrategy());\nnotificationService.send(msg); // strategy decides HOW to send\n\n// FACTORY: create the RIGHT OBJECT from scratch\nNotification n = NotificationFactory.create(\"EMAIL\");\nn.send(msg); // factory decided WHICH object to create"
+          },
+          {
+            "type": "insight",
+            "value": "Strategy = WHICH algorithm to RUN. Factory = WHICH object to CREATE. They're orthogonal -- Factory can create Strategy objects."
+          }
+        ]
+      },
+      {
+        "id": "simple-factory",
+        "title": "Simple Factory: Move the if-else to One Place",
+        "content": [
+          {
+            "type": "text",
+            "value": "The fix is dead simple: extract the creation logic into its own class. ONE class, ONE method, all creation decisions centralized."
+          },
+          {
+            "type": "code",
+            "title": "Simple Factory",
+            "value": "enum NotificationType { EMAIL, SMS, PUSH, WHATSAPP }\n\nclass NotificationFactory {\n    static Notification create(NotificationType type) {\n        return switch (type) {\n            case EMAIL    -> new EmailNotification();\n            case SMS      -> new SMSNotification();\n            case PUSH     -> new PushNotification();\n            case WHATSAPP -> new WhatsAppNotification();\n        };\n    }\n}\n\n// Now ALL 10 services just do this:\nNotification n = NotificationFactory.create(type);\nn.send(message);\n// Add WhatsApp? ONE new case. 10 services untouched."
+          },
+          {
+            "type": "text",
+            "value": "Add WhatsApp? ONE new case here. 10 services untouched. Constructor changes? ONE file to update. The enum gives compile-time safety -- no typo crashes."
+          },
+          {
+            "type": "diagram",
+            "title": "Simple Factory UML",
+            "value": "+-------------------+         +------------------+\n|  NotificationFactory|         |  <<interface>>   |\n|-------------------|         |  Notification     |\n| +create(type)     |-------->|------------------|\n|   : Notification  |         | +send(message)   |\n+-------------------+         | +getChannel()    |\n                              +------------------+\n                                  ^    ^    ^\n                     +------------|----|----|------------+\n                     |            |    |                 |\n              +------+------+  +-+----+--+  +-----------+--+\n              | EmailNotif. |  | SMSNotif.|  | PushNotif.   |\n              +-------------+  +----------+  +--------------+"
+          },
+          {
+            "type": "qa",
+            "question": "Still 'new' keyword and tight coupling! The factory has 'new EmailNotification()' -- how is that decoupled?",
+            "answer": "Yes! Factory doesn't ELIMINATE coupling -- it CENTRALIZES it.\n\nBefore: 10 files know about EmailNotification.\nAfter: 1 file knows.\n\nSomeone must always call 'new' -- the question is WHERE. Going from 10 places to 1 place is a massive win for maintenance, testing, and change management."
+          },
+          {
+            "type": "insight",
+            "value": "Simple Factory handles 80% of real-world cases. Don't over-engineer past this unless you have a specific reason."
+          }
+        ]
+      },
+      {
+        "id": "registry",
+        "title": "Registry: Kill the if-else Entirely",
+        "content": [
+          {
+            "type": "text",
+            "value": "Simple Factory has a switch statement. Every new type means modifying that switch. Can we eliminate even that?"
+          },
+          {
+            "type": "code",
+            "title": "Registry Factory",
+            "value": "class NotificationRegistry {\n    private static final Map<NotificationType, Supplier<Notification>>\n        registry = new EnumMap<>(NotificationType.class);\n\n    static {\n        registry.put(EMAIL,    EmailNotification::new);\n        registry.put(SMS,      SMSNotification::new);\n        registry.put(PUSH,     PushNotification::new);\n        registry.put(WHATSAPP, WhatsAppNotification::new);\n    }\n\n    static Notification create(NotificationType type) {\n        Supplier<Notification> supplier = registry.get(type);\n        if (supplier == null) throw new IllegalArgumentException(\"Unknown: \" + type);\n        return supplier.get(); // Supplier.get() = lazy creation\n    }\n}"
+          },
+          {
+            "type": "text",
+            "value": "New type? One line: registry.put(TELEGRAM, TelegramNotification::new). Zero existing code modified. True Open/Closed Principle."
+          },
+          {
+            "type": "insight",
+            "value": "Registry stores RECIPES (Supplier/lambda), not finished dishes. Objects are created lazily -- only when supplier.get() is called."
+          }
+        ]
+      },
+      {
+        "id": "god-factory",
+        "title": "\"But What About SMTP Config and API Keys?\"",
+        "content": [
+          {
+            "type": "qa",
+            "question": "Products have different constructor parameters. EmailNotification needs SMTP host, SMSNotification needs an API key, PushNotification needs an FCM token. How does a factory with a single create(type) method handle this?",
+            "answer": "Great question. If the factory loads SMTP config for email, API keys for SMS, and FCM tokens for push -- all inside one method -- it becomes a God Factory. It knows everyone's private details, violating SRP.\n\nWhen creation is trivial (just 'new X()'), Simple Factory is perfect. When creation involves private knowledge per type, we need something different..."
+          },
+          {
+            "type": "code",
+            "title": "God Factory Anti-Pattern",
+            "value": "// GOD FACTORY -- knows everyone's secrets (BAD!)\nclass NotificationFactory {\n    static Notification create(String type) {\n        if (type.equals(\"email\")) {\n            SmtpConfig c = loadSmtpConfig();    // email's private knowledge\n            return new EmailNotification(c);\n        } else if (type.equals(\"sms\")) {\n            SmsApiKey k = loadApiKey();          // sms's private knowledge\n            return new SMSNotification(k);\n        } else if (type.equals(\"push\")) {\n            FcmToken t = loadFcmToken();         // push's private knowledge\n            return new PushNotification(t);\n        }\n        // This factory knows TOO MUCH. SRP violated.\n    }\n}"
+          },
+          {
+            "type": "text",
+            "value": "Simple Factory works beautifully when creation is trivial. But when each product type needs private setup knowledge -- SMTP hosts, API keys from vaults, device tokens -- stuffing it all into one factory creates a monster. Enter Factory Method..."
+          }
+        ]
+      },
+      {
+        "id": "factory-method",
+        "title": "Factory Method: The Hook Inside the Service",
+        "content": [
+          {
+            "type": "text",
+            "value": "Instead of a separate factory class, make creation an abstract METHOD inside a service class. Each subclass overrides this method with its own private creation logic."
+          },
+          {
+            "type": "code",
+            "title": "Factory Method Pattern",
+            "value": "abstract class NotificationService {\n    // ===== THE FACTORY METHOD =====\n    // Subclasses override this to provide their specific product.\n    protected abstract Notification createNotification();\n\n    // Template: shared orchestration written ONCE.\n    // validate -> create -> send -> log -> audit\n    public final void sendNotification(String message) {\n        validate(message);\n        Notification n = createNotification(); // HOOK: subclass decides\n        n.send(message);\n        log(n.getChannel(), message);\n        audit(n.getChannel());\n    }\n    // validate(), log(), audit() -- written ONCE, not duplicated\n}\n\nclass EmailNotificationService extends NotificationService {\n    protected Notification createNotification() {\n        String host = loadSmtpConfig(); // MY private knowledge\n        return new EmailNotification(host);\n    }\n}\n\nclass SMSNotificationService extends NotificationService {\n    protected Notification createNotification() {\n        String key = loadApiKeyFromVault(); // MY private knowledge\n        return new SMSNotification(key);\n    }\n}"
+          },
+          {
+            "type": "qa",
+            "question": "Where is the factory CLASS? I just see a service with a method. Where did the factory go?",
+            "answer": "There IS no separate factory class in Factory Method. The 'factory' is a METHOD (createNotification) inside the service class. That's why it's called Factory METHOD, not Factory Class.\n\nEach subclass overrides that one method to decide what to create. The factory lives as a method, not as a standalone class."
+          },
+          {
+            "type": "diagram",
+            "title": "Factory Method UML",
+            "value": "+------------------------------+       +-----------------+\n|  NotificationService         |       | <<interface>>   |\n|  <<abstract>>                |       | Notification    |\n|------------------------------|       |-----------------|\n| #createNotification()*       |------>| +send(message)  |\n| +sendNotification(message)   |       +-----------------+\n|   validate -> create -> send |             ^       ^\n|   -> log -> audit            |             |       |\n+------------------------------+        +----+--+ +--+------+\n        ^              ^                | Email | | SMS     |\n        |              |                | Notif.| | Notif.  |\n+-------+--------+ +--+-------------+  +-------+ +---------+\n| EmailNotif.    | | SMSNotif.      |\n| Service        | | Service        |\n|----------------| |----------------|\n| createNotif()  | | createNotif()  |\n| loads SMTP cfg | | loads API key  |\n+----------------+ +----------------+"
+          }
+        ]
+      },
+      {
+        "id": "template-hook",
+        "title": "This is Template Method + Creation Hook",
+        "content": [
+          {
+            "type": "text",
+            "value": "Look at the abstract NotificationService again. The sendNotification() method defines a WORKFLOW: validate → create → send → log → audit. This is the Template Method pattern. The createNotification() call is the HOOK that subclasses fill in."
+          },
+          {
+            "type": "text",
+            "value": "Without this abstract class, every service would duplicate the validate/log/audit logic. That duplication is the REAL reason Factory Method exists -- not the creation itself."
+          },
+          {
+            "type": "qa",
+            "question": "If creation logic is scattered across subclasses, isn't that WORSE than having it centralized in one factory?",
+            "answer": "It's justified ONLY when each piece of scattered logic is PRIVATE KNOWLEDGE belonging to that subclass.\n\nEmailService knows SMTP config. SMSService knows Twilio API keys. UPIService knows NPCI endpoints.\n\nIf creation is just 'new X()' with no private knowledge, use Simple Factory. Don't scatter for no reason. Factory Method earns its place only through the combination of private creation knowledge + shared orchestration."
+          },
+          {
+            "type": "qa",
+            "question": "Factory Method mixes creation logic with business logic in the same class. Isn't that violating SRP?",
+            "answer": "It's intentional when creation and business logic are COUPLED BY DESIGN. UPI service needs UPI-specific creation (VPA validation, NPCI config) AND UPI-specific retry logic. They change together, so they belong together.\n\nIf creation and business logic are UNRELATED (OrderService creating Notifications), use a separate Factory class. The test: 'If creation logic changes, does business logic ALSO change?' YES = same class. NO = separate."
+          },
+          {
+            "type": "insight",
+            "value": "Factory Method earns its place through SHARED ORCHESTRATION around the product. No shared logic? Use Simple Factory. It's simpler and more readable."
+          }
+        ]
+      },
+      {
+        "id": "client-coupling",
+        "title": "\"Client Still Does new EmailNotificationService()!\"",
+        "content": [
+          {
+            "type": "qa",
+            "question": "The client code still says 'new EmailNotificationService()'. That's still hardcoded! How is this dynamic?",
+            "answer": "You're right. Factory Method alone doesn't solve client-side selection. It's an INTERNAL pattern -- it solves creation INSIDE the service.\n\nFor dynamic client-side selection you ALWAYS need something on top:\n1. Simple Factory: ServiceFactory.create('email')\n2. Registry/Map: services.get('email')\n3. Spring DI: @Autowired Map<String, NotificationService>"
+          },
+          {
+            "type": "code",
+            "title": "Two Levels Working Together",
+            "value": "// Level 1: Simple Factory picks the SERVICE\nNotificationService service = ServiceFactory.create(\"email\");\n\n// Level 2: Factory Method INSIDE the service picks the PRODUCT\nservice.sendNotification(\"Hello!\");\n// internally: validate -> createNotification() -> send -> log -> audit\n//                         ^^^ subclass decides what to create"
+          },
+          {
+            "type": "insight",
+            "value": "Simple Factory picks WHICH service. Factory Method inside the service picks WHICH product. Two patterns, two levels, two different jobs."
+          }
+        ]
+      },
+      {
+        "id": "india-family",
+        "title": "\"India Has UPI AND Credit Card AND Visa...\"",
+        "content": [
+          {
+            "type": "qa",
+            "question": "You showed India with just UPI. But India has credit card, debit card, Visa, AND UPI. Why tight-couple IndiaPaymentFactory with just UPI?",
+            "answer": "Exactly! This is why Abstract Factory exists. Each country doesn't just need ONE product -- it needs a FAMILY of related products that must stay consistent:\n\nIndia: UPI processor + GST receipt + VPA validator\nUS: Credit Card processor + US invoice + Luhn validator\nMexico: Oxxo processor + RFC receipt + CLABE validator\n\nYou can't mix a UPI processor with a US receipt. They MUST vary together."
+          },
+          {
+            "type": "text",
+            "value": "Your question independently discovered the reason Abstract Factory was invented. When products form families that must be consistent, Simple Factory (which creates ONE product type) isn't enough."
+          },
+          {
+            "type": "insight",
+            "value": "Simple Factory = ONE product type. Abstract Factory = FAMILY of products that must vary together (by country, theme, OS, etc.)."
+          }
+        ]
+      },
+      {
+        "id": "abstract-factory",
+        "title": "Abstract Factory: Families That Vary Together",
+        "content": [
+          {
+            "type": "text",
+            "value": "Abstract Factory has an interface with MULTIPLE create methods -- one for each product in the family. Each concrete factory returns a consistent set."
+          },
+          {
+            "type": "code",
+            "title": "Abstract Factory",
+            "value": "interface PaymentFactory {\n    PaymentProcessor createProcessor();   // product 1\n    Receipt createReceipt();              // product 2\n    PaymentValidator createValidator();   // product 3\n}\n\nclass IndiaPaymentFactory implements PaymentFactory {\n    public PaymentProcessor createProcessor()  { return new UPIProcessor(); }\n    public Receipt createReceipt()             { return new IndiaReceipt(); } // GST\n    public PaymentValidator createValidator()   { return new IndiaValidator(); } // VPA\n}\n\nclass USPaymentFactory implements PaymentFactory {\n    public PaymentProcessor createProcessor()  { return new CreditCardProcessor(); }\n    public Receipt createReceipt()             { return new USReceipt(); }\n    public PaymentValidator createValidator()   { return new USValidator(); } // Luhn\n}\n\n// Client doesn't know if it's India or US\nclass CheckoutService {\n    private final PaymentFactory factory;\n    CheckoutService(PaymentFactory factory) { this.factory = factory; }\n\n    void checkout(String details, double amount) {\n        factory.createValidator().validate(details);\n        factory.createProcessor().charge(amount);\n        factory.createReceipt().generate(txnId, amount);\n        // SAME code. Different country. Guaranteed consistency.\n    }\n}"
+          },
+          {
+            "type": "diagram",
+            "title": "Abstract Factory UML",
+            "value": "+--------------------+       +------------------+  +----------+  +------------------+\n| <<interface>>      |       | <<interface>>    |  |<<interf>>|  | <<interface>>    |\n| PaymentFactory     |------>| PaymentProcessor |  | Receipt  |  | PaymentValidator |\n|--------------------|       +------------------+  +----------+  +------------------+\n| +createProcessor() |          ^          ^          ^    ^         ^          ^\n| +createReceipt()   |          |          |          |    |         |          |\n| +createValidator() |     +----+---+ +----+----+ +---+-+ ++------+ ++------+ ++---------+\n+--------------------+     | UPI    | | CreditC.| |India| | US    | |India  | | US       |\n     ^           ^         | Proc.  | | Proc.   | |Rcpt | | Rcpt  | |Valid. | | Valid.   |\n     |           |         +--------+ +---------+ +-----+ +-------+ +-------+ +----------+\n+----+-------+ +-+------------+\n| IndiaPaym. | | USPayment    |\n| Factory    | | Factory      |\n+------------+ +--------------+"
+          }
+        ]
+      },
+      {
+        "id": "spring-di",
+        "title": "Spring DI: Where Did the Factory Go?",
+        "content": [
+          {
+            "type": "text",
+            "value": "In production Spring applications, you rarely write manual factories. Why? Because Spring IS the factory."
+          },
+          {
+            "type": "code",
+            "title": "Spring = Factory",
+            "value": "@Configuration\nclass NotificationConfig {\n    @Bean(\"email\") // THIS is a factory method!\n    Notification email() {\n        return new EmailNotification(loadSmtpConfig());\n    }\n\n    @Bean(\"sms\")\n    Notification sms() {\n        return new SMSNotification(loadApiKey());\n    }\n}\n\n// Client: @Autowired IS the factory call\n@Autowired Map<String, Notification> notifications;\n// Spring auto-populates: {\"email\": EmailNotification, \"sms\": SMSNotification}\n\n// At runtime when user clicks \"SMS\":\nnotifications.get(\"sms\").send(msg); // no 'new' anywhere in business code"
+          },
+          {
+            "type": "qa",
+            "question": "Is that why I don't see abstract factory methods in my Spring codebase? Where did all the patterns go?",
+            "answer": "@Bean methods ARE factory methods. The @Configuration class IS a factory class. @Autowired Map IS a registry. The map.get() call IS the factory selection.\n\nThe CONCEPTS are alive and everywhere. The manual patterns aren't needed because Spring handles the wiring. Understanding Factory pattern helps you understand what Spring does under the hood -- and why the framework is designed the way it is."
+          },
+          {
+            "type": "insight",
+            "value": "Spring IS the factory. @Bean = factory method. @Autowired Map = registry. The concept lives on; the manual code doesn't."
+          }
+        ]
+      },
+      {
+        "id": "coupling-progression",
+        "title": "The Coupling Progression: 'new' Never Disappears",
+        "content": [
+          {
+            "type": "text",
+            "value": "Throughout this walkthrough, you kept asking: \"Still new keyword. Still tight coupling.\" You were RIGHT every time. Factory doesn't eliminate coupling -- it MANAGES where it lives."
+          },
+          {
+            "type": "code",
+            "title": "The Full Progression",
+            "value": "Level 0: Scattered      -> 'new' in 10 files (worst)\nLevel 1: Simple Factory -> 'new' in 1 class\nLevel 2: Registry       -> 'new' in a Map (Supplier)\nLevel 3: Spring DI      -> 'new' in @Configuration\nLevel 4: External YAML  -> 'new' driven by config file (best)\n\n// Each level pushes 'new' further from business logic.\n// Zero coupling is IMPOSSIBLE in OOP -- someone must call 'new'.\n// The goal: coupling in ONE place, not scattered across 10."
+          },
+          {
+            "type": "insight",
+            "value": "Factory MANAGES coupling. It doesn't eliminate it. And that's the right goal -- centralize decisions so they're easy to find, change, and test."
+          }
+        ]
+      },
+      {
+        "id": "decision-tree",
+        "title": "The Decision Tree: When to Use Which Flavor",
+        "content": [
+          {
+            "type": "text",
+            "value": "After this entire walkthrough, here's your decision checklist:"
+          },
+          {
+            "type": "code",
+            "title": "Decision Flowchart",
+            "value": "How many types implementing the same interface?\n  |\n  +-- Only 1 stable type? --> Skip factory. Just 'new' it.\n  |\n  +-- 2+ types, chosen at runtime?\n       |\n       +-- Creation is simple (just 'new X()')?\n       |    |\n       |    +-- YES --> Simple Factory (80% of cases)\n       |    |            Want zero if-else? --> Registry with Map<Type, Supplier>\n       |    |\n       |    +-- NO, creation needs private config per type?\n       |         |\n       |         +-- AND shared orchestration exists (log, retry, audit)?\n       |              |\n       |              +-- YES --> Factory Method (20% of cases)\n       |              +-- NO shared logic --> Still use Simple Factory\n       |\n       +-- Products form consistent FAMILIES?\n            (by country, theme, OS, platform)\n            |\n            +-- YES --> Abstract Factory\n            |\n            +-- Using Spring? --> @Bean + @Autowired replaces all of the above"
+          },
+          {
+            "type": "insight",
+            "value": "Start simple. Upgrade only when you hit a real problem. Simple Factory → Registry → Factory Method → Abstract Factory. Never skip levels. YAGNI applies to patterns too."
+          }
+        ]
+      }
+    ]
   }
 }

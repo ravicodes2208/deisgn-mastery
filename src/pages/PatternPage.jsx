@@ -14,6 +14,7 @@ import PatternWeb from '../components/pattern/PatternWeb'
 import AntiPatterns from '../components/pattern/AntiPatterns'
 import PatternQuiz from '../components/pattern/PatternQuiz'
 import CheatSheet from '../components/pattern/CheatSheet'
+import PatternExplanation from '../components/pattern/PatternExplanation'
 import QuestionCard from '../components/practice/QuestionCard'
 
 // Import pattern data
@@ -30,6 +31,7 @@ const patternDataMap = {
 const baseSections = [
   { id: 'intuition', label: 'Intuition', icon: '🎯' },
   { id: 'triggers', label: 'Brain Triggers', icon: '🧠' },
+  { id: 'explanation', label: 'Explanation', icon: '📖', requiresData: 'explanation' },
   { id: 'code', label: 'Code Build', icon: '💻' },
   { id: 'solid', label: 'SOLID', icon: '🔗' },
   { id: 'lld', label: 'LLD Problems', icon: '🎯' },
@@ -130,6 +132,8 @@ function PatternPage() {
         return <PatternHero hook={patternData.hook} />
       case 'triggers':
         return <BrainTriggers brainTriggers={patternData.brainTriggers} />
+      case 'explanation':
+        return <PatternExplanation explanation={patternData.explanation} />
       case 'code':
         return (
           <CodeWalkthrough
