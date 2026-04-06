@@ -5,13 +5,14 @@ import clsx from 'clsx'
 // Lazy-load Monaco to avoid bloating initial bundle (~2MB)
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
-// Piston API config — public, free, no auth needed
-const PISTON_API = 'https://emkc.org/api/v2/piston/execute'
+// Judge0 CE API — free, no auth needed for public instance
+const JUDGE0_API = 'https://ce.judge0.com'
 
+// Judge0 language IDs
 const LANG_CONFIG = {
-  java: { pistonLang: 'java', pistonVersion: '15.0.2', monacoLang: 'java', label: 'Java', color: 'bg-java' },
-  cpp: { pistonLang: 'c++', pistonVersion: '10.2.0', monacoLang: 'cpp', label: 'C++', color: 'bg-cpp' },
-  kotlin: { pistonLang: 'kotlin', pistonVersion: '1.8.20', monacoLang: 'kotlin', label: 'Kotlin', color: 'bg-purple-600' }
+  java: { langId: 91, monacoLang: 'java', label: 'Java', color: 'bg-java' },
+  cpp: { langId: 105, monacoLang: 'cpp', label: 'C++', color: 'bg-cpp' },
+  kotlin: { langId: 111, monacoLang: 'kotlin', label: 'Kotlin', color: 'bg-purple-600' }
 }
 
 function InteractiveEditor({ code, language, title, explanation }) {
@@ -31,15 +32,18 @@ function InteractiveEditor({ code, language, title, explanation }) {
     setOutput(null)
 
     try {
-      const response = await fetch(PISTON_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: config.pistonLang,
-          version: config.pistonVersion,
-          files: [{ content: editedCode }]
-        })
-      })
+      // Submit code to Judge0 with wait=true (synchronous, simpler)
+      const response = await fetch(
+        `${JUDGE0_API}/submissions?base64_encoded=false&wait=true`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language_id: config.langId,
+            source_code: editedCode
+          })
+        }
+      )
 
       if (!response.ok) {
         throw new Error(`API returned ${response.status}`)
@@ -47,22 +51,44 @@ function InteractiveEditor({ code, language, title, explanation }) {
 
       const data = await response.json()
 
-      // Piston returns { run: { stdout, stderr, code, signal } }
-      const run = data.run || {}
-      const compile = data.compile || {}
+      // Judge0 status IDs: 3 = Accepted, 6 = Compilation Error, 5 = TLE, 11 = Runtime Error
+      const status = data.status?.id
 
-      if (compile.stderr) {
-        setOutput({ type: 'error', text: compile.stderr })
-      } else if (run.stderr) {
-        setOutput({ type: 'error', text: run.stdout ? run.stdout + '\n' + run.stderr : run.stderr })
-      } else if (run.stdout) {
-        setOutput({ type: 'success', text: run.stdout })
+      if (status === 3) {
+        // Accepted — successful execution
+        setOutput({
+          type: 'success',
+          text: data.stdout || '(No output)',
+          time: data.time,
+          memory: data.memory
+        })
+      } else if (status === 6) {
+        // Compilation error
+        setOutput({
+          type: 'error',
+          text: data.compile_output || 'Compilation failed'
+        })
+      } else if (status === 5) {
+        // Time Limit Exceeded
+        setOutput({
+          type: 'error',
+          text: 'Time Limit Exceeded (max 10s). Check for infinite loops.'
+        })
       } else {
-        setOutput({ type: 'info', text: '(No output)' })
+        // Runtime error or other
+        const errorText = data.stderr || data.compile_output || data.message || `Execution failed (status: ${data.status?.description})`
+        const stdout = data.stdout ? data.stdout + '\n' : ''
+        setOutput({
+          type: 'error',
+          text: stdout + errorText
+        })
       }
     } catch (err) {
       setError(err.message || 'Failed to execute code')
-      setOutput({ type: 'error', text: 'Network error. Check your internet connection.' })
+      setOutput({
+        type: 'error',
+        text: 'Could not reach the execution server. Check your internet connection and try again.'
+      })
     } finally {
       setIsRunning(false)
     }
@@ -171,13 +197,20 @@ function InteractiveEditor({ code, language, title, explanation }) {
       {/* Output Panel */}
       {showOutput && (
         <div className="border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-            <Terminal className="w-4 h-4 text-gray-500" />
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              Output
-            </span>
-            {output?.type === 'success' && <span className="w-2 h-2 rounded-full bg-green-500" />}
-            {output?.type === 'error' && <span className="w-2 h-2 rounded-full bg-red-500" />}
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-gray-500" />
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Output
+              </span>
+              {output?.type === 'success' && <span className="w-2 h-2 rounded-full bg-green-500" />}
+              {output?.type === 'error' && <span className="w-2 h-2 rounded-full bg-red-500" />}
+            </div>
+            {output?.time && (
+              <span className="text-xs text-gray-500 dark:text-gray-500">
+                {output.time}s | {Math.round(output.memory / 1024)}MB
+              </span>
+            )}
           </div>
           <div className={clsx(
             'px-4 py-3 font-mono text-sm whitespace-pre-wrap max-h-[200px] overflow-y-auto',
