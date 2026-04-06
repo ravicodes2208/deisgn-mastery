@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import CodeBlock from '../content/CodeBlock'
+import InteractiveEditor from './InteractiveEditor'
 import clsx from 'clsx'
 
 const languages = [
@@ -18,9 +18,14 @@ function CodeWalkthrough({ codeImplementation }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-        Step-by-Step Code Build
-      </h2>
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          Step-by-Step Code Build
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Edit the code and hit Run to see it execute in real time.
+        </p>
+      </div>
 
       {/* Build Steps */}
       {codeImplementation.steps && (
@@ -83,11 +88,12 @@ function CodeWalkthrough({ codeImplementation }) {
         </div>
       </div>
 
-      {/* Code Block */}
+      {/* Interactive Editor */}
       {currentCode && (
-        <CodeBlock
+        <InteractiveEditor
+          key={activeLang}
           code={currentCode.code}
-          language={activeLang === 'kotlin' ? 'java' : activeLang}
+          language={activeLang}
           title={currentCode.title}
           explanation={currentCode.explanation}
         />
