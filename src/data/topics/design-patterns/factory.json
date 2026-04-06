@@ -5,12 +5,12 @@
   "phase": "design-patterns",
   "order": 2,
   "icon": "🏭",
-  "description": "Centralize object creation so that clients don't need to know which concrete class to instantiate. Ask a Factory -- don't new it yourself.",
+  "description": "Centralize object creation so clients don't know which concrete class to instantiate. Three flavors: Simple Factory (separate class with if-else), Registry (Map of creators, zero if-else), and Factory Method (abstract method in service, subclasses decide). 80% of the time Simple Factory wins.",
   "estimatedTime": "2-3 hours",
 
   "hook": {
     "crux": "Don't create objects yourself -- ask a Factory to create them for you.",
-    "oneLiner": "Move object creation logic into a dedicated place so adding new types doesn't ripple through every file that creates objects.",
+    "oneLiner": "Move object creation logic into a dedicated place -- a separate Factory class (Simple Factory), a Map of creators (Registry), or an abstract method in a service that subclasses override (Factory Method) -- so adding new types doesn't ripple through your codebase.",
     "problemStatement": "Imagine a notification system where OrderService, PaymentService, ShippingService, and ReturnService all create notifications. Each service has if-else chains: if email, new EmailNotification(); if SMS, new SMSNotification(); if push, new PushNotification(). Now the PM says 'add WhatsApp.' You touch 10+ files. Constructor of SMSNotification changes? 10+ files again. Testing? Every service is tightly coupled to every notification type.",
     "analogy": {
       "title": "The Pizza Restaurant",
@@ -25,9 +25,9 @@
     },
     "participants": [
       { "name": "Product Interface", "role": "The common contract all created objects share", "example": "Notification" },
-      { "name": "Concrete Products", "role": "The specific implementations the factory creates", "example": "EmailNotification, SMSNotification, PushNotification" },
-      { "name": "Factory", "role": "The ONE place that decides which concrete product to create", "example": "NotificationFactory" },
-      { "name": "Client", "role": "Code that asks the factory for objects without knowing concrete types", "example": "OrderService, PaymentService" }
+      { "name": "Concrete Products", "role": "The specific implementations that get created", "example": "EmailNotification, SMSNotification, PushNotification" },
+      { "name": "Factory (3 flavors)", "role": "Simple Factory: a separate class with if-else/switch (NotificationFactory). Factory Method: an abstract method inside a service class that subclasses override (NotificationService with createNotification()). Registry: a Map of creators that eliminates if-else entirely.", "example": "Simple: NotificationFactory.create(type) | Method: abstract NotificationService -> EmailNotificationService overrides createNotification() | Registry: Map<Type, Supplier>" },
+      { "name": "Client", "role": "Code that asks for objects without knowing concrete types. In Simple Factory, calls factory.create(type). In Factory Method, holds the abstract service reference.", "example": "OrderService calls factory.create() or holds NotificationService reference" }
     ]
   },
 
@@ -53,8 +53,8 @@
     "steps": [
       { "step": 1, "title": "Define the Product Interface", "description": "Create the contract -- the common interface all products share. Every product type implements this. Client code only ever sees this interface." },
       { "step": 2, "title": "Create Concrete Products", "description": "Each product type gets its own class implementing the interface. EmailNotification handles email, SMSNotification handles SMS. Each owns ONLY its logic." },
-      { "step": 3, "title": "Build the Factory", "description": "One class/method that takes a type indicator (enum, string) and returns the right concrete product through the interface. All if-else/switch creation logic lives HERE and nowhere else." },
-      { "step": 4, "title": "Client Uses Factory", "description": "Client asks the factory for an object. Client only knows the interface. Adding a new type means adding a new class + one line in the factory. Client code is UNTOUCHED." }
+      { "step": 3, "title": "Choose Your Factory Flavor", "description": "Simple Factory (80% of cases): A separate class with switch/if-else on type enum. Quick, centralized, practical. Registry Factory: A Map<Type, Supplier> that eliminates if-else entirely. New types register themselves. Factory Method (20%): An abstract method inside a service class. Subclasses override it to create the product. Use ONLY when creation involves private knowledge per type (config loading, API keys) AND the service has shared business logic (log, retry, audit) around the product." },
+      { "step": 4, "title": "Client Uses the Factory", "description": "Simple Factory: client calls NotificationFactory.create(type). Factory Method: client holds an abstract NotificationService reference -- the subclass decides what to create internally. In both cases, client only knows the Product Interface. Adding a new type NEVER changes client code." }
     ],
     "java": {
       "title": "Factory Pattern - Notification System (Java)",
