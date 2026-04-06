@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, Lightbulb, MessageCircle, GitBranch } from 'lucide-react'
 import clsx from 'clsx'
+import CodeBlock from '../common/CodeBlock'
 
 // Interactive Q&A callout -- the "back and forth" discussion feel
 function QACallout({ question, answer }) {
@@ -56,16 +57,11 @@ function ContentBlock({ block }) {
       )
     case 'code':
       return (
-        <div className="my-4 rounded-xl overflow-hidden border border-gray-700">
-          {block.title && (
-            <div className="px-4 py-2 bg-gray-800 text-xs font-semibold text-gray-400 border-b border-gray-700">
-              {block.title}
-            </div>
-          )}
-          <pre className="p-4 bg-gray-900 text-green-300 text-xs font-mono overflow-x-auto leading-relaxed">
-            <code>{block.value}</code>
-          </pre>
-        </div>
+        <CodeBlock
+          code={block.value}
+          language={block.language || 'java'}
+          title={block.title}
+        />
       )
     case 'qa':
       return <QACallout question={block.question} answer={block.answer} />

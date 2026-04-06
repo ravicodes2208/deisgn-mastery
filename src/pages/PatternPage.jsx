@@ -16,6 +16,7 @@ import PatternQuiz from '../components/pattern/PatternQuiz'
 import CheatSheet from '../components/pattern/CheatSheet'
 import PatternExplanation from '../components/pattern/PatternExplanation'
 import QuestionCard from '../components/practice/QuestionCard'
+import CodeBlock from '../components/common/CodeBlock'
 
 // Import pattern data
 import strategyData from '../data/topics/design-patterns/strategy.json'
@@ -67,9 +68,7 @@ function DeepThoughtCard({ question }) {
               {question.answer}
             </p>
             {question.codeExample && (
-              <pre className="p-3 rounded-lg bg-gray-900 text-green-300 text-xs font-mono overflow-x-auto leading-relaxed">
-                <code>{question.codeExample}</code>
-              </pre>
+              <CodeBlock code={question.codeExample} language="java" compact />
             )}
           </div>
         </div>
