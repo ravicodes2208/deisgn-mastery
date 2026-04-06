@@ -26,19 +26,50 @@ const patternDataMap = {
   'factory': factoryData
 }
 
-// Section navigation config
-const sections = [
-  { id: 'intuition', label: 'Intuition', icon: '🎯', num: 1 },
-  { id: 'triggers', label: 'Brain Triggers', icon: '🧠', num: 2 },
-  { id: 'code', label: 'Code Build', icon: '💻', num: 3 },
-  { id: 'solid', label: 'SOLID', icon: '🔗', num: 4 },
-  { id: 'lld', label: 'LLD Problems', icon: '🎯', num: 5 },
-  { id: 'web', label: 'Pattern Web', icon: '🕸️', num: 6 },
-  { id: 'antipatterns', label: 'Anti-Patterns', icon: '⚠️', num: 7 },
-  { id: 'quiz', label: 'Quiz', icon: '📝', num: 8 },
-  { id: 'practice', label: 'Practice', icon: '🏋️', num: 9 },
-  { id: 'cheatsheet', label: 'Cheat Sheet', icon: '📋', num: 10 }
+// Base section navigation config
+const baseSections = [
+  { id: 'intuition', label: 'Intuition', icon: '🎯' },
+  { id: 'triggers', label: 'Brain Triggers', icon: '🧠' },
+  { id: 'code', label: 'Code Build', icon: '💻' },
+  { id: 'solid', label: 'SOLID', icon: '🔗' },
+  { id: 'lld', label: 'LLD Problems', icon: '🎯' },
+  { id: 'web', label: 'Pattern Web', icon: '🕸️' },
+  { id: 'antipatterns', label: 'Anti-Patterns', icon: '⚠️' },
+  { id: 'deepthoughts', label: 'Deep Thoughts', icon: '🤔', requiresData: 'deepThoughtQuestions' },
+  { id: 'quiz', label: 'Quiz', icon: '📝' },
+  { id: 'practice', label: 'Practice', icon: '🏋️' },
+  { id: 'cheatsheet', label: 'Cheat Sheet', icon: '📋' }
 ]
+
+function DeepThoughtCard({ question }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-start gap-3 p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      >
+        <span className="text-lg mt-0.5">{isOpen ? '🔽' : '🤔'}</span>
+        <div className="flex-1">
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-relaxed">
+            {question.question}
+          </h3>
+        </div>
+        <ChevronRight className={clsx('w-5 h-5 text-gray-400 transition-transform flex-shrink-0 mt-0.5', isOpen && 'rotate-90')} />
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-4 pt-0 ml-9 animate-fade-in">
+          <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+              {question.answer}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function PatternPage() {
   const { phase, topicId } = useParams()
@@ -79,6 +110,9 @@ function PatternPage() {
     )
   }
 
+  // Filter sections based on available data (e.g., hide Deep Thoughts if no questions exist)
+  const sections = baseSections.filter(s => !s.requiresData || patternData[s.requiresData]?.length > 0)
+
   const isCompleted = progress.completedTopics.includes(topicId)
   const currentIdx = sections.findIndex(s => s.id === activeSection)
   const prevSection = currentIdx > 0 ? sections[currentIdx - 1] : null
@@ -101,6 +135,28 @@ function PatternPage() {
         return <PatternWeb patternWeb={patternData.patternWeb} />
       case 'antipatterns':
         return <AntiPatterns antiPatterns={patternData.antiPatterns} />
+      case 'deepthoughts':
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              🤔 Deep Thought Questions
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              These are the hard-hitting questions that truly test your understanding. Click to reveal the answer.
+            </p>
+            {patternData.deepThoughtQuestions && patternData.deepThoughtQuestions.length > 0 ? (
+              <div className="space-y-4">
+                {patternData.deepThoughtQuestions.map((dtq) => (
+                  <DeepThoughtCard key={dtq.id} question={dtq} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                No deep thought questions yet.
+              </div>
+            )}
+          </div>
+        )
       case 'quiz':
         return <PatternQuiz quiz={patternData.quiz} />
       case 'practice':
