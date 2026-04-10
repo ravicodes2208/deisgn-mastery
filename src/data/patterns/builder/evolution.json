@@ -1,0 +1,71 @@
+{
+  "title": "Code Evolution",
+  "subtitle": "Watch code transform from chaos to clean architecture",
+  "stages": [
+    {
+      "id": "telescoping",
+      "label": "Telescoping Constructors",
+      "shortLabel": "Chaos",
+      "icon": "\ud83d\udca5",
+      "description": "Multiple constructors with increasing parameters. Callers pass null/false for unused options. Adding a field breaks everything.",
+      "problems": [
+        "Unreadable -- which parameter is which?",
+        "Adding new field = changing every existing call",
+        "Boolean parameters indistinguishable -- true, false, true, false",
+        "No cross-field validation possible"
+      ],
+      "code": "class Meal {\n    Meal(String bun, int pattyCount) { ... }\n    Meal(String bun, int pattyCount, String cheese) { ... }\n    Meal(String bun, int pattyCount, String cheese, String sauce) { ... }\n    Meal(String bun, int pattyCount, String cheese, String sauce,\n         boolean bacon, boolean lettuce, String size) { ... }\n    // 7 constructors and growing...\n}\n\n// Usage -- which boolean is which?\nnew Meal(\"sesame\", 2, \"cheddar\", null, true, false, \"large\");\n// Is true=bacon or true=lettuce? Nobody remembers."
+    },
+    {
+      "id": "setters",
+      "label": "JavaBean Setters",
+      "shortLabel": "Setters",
+      "icon": "\ud83d\udd27",
+      "description": "No-arg constructor + setters. Readable but mutable, no completion guarantee, no validation.",
+      "problems": [
+        "Object in transient invalid state during construction",
+        "No 'done' signal -- when is construction complete?",
+        "Permanently mutable -- can be modified after 'done'",
+        "Cross-field validation impossible in individual setters"
+      ],
+      "code": "Meal meal = new Meal();          // empty meal -- invalid state\nmeal.setBun(\"sesame\");           // partial...\nmeal.setPattyCount(2);           // still partial...\nmeal.setCheese(\"cheddar\");       // getting there...\nmeal.setSize(\"large\");           // 'done'? maybe?\n\n// But nothing stops this:\nmeal.setCheese(\"swiss\");         // changed after 'done'!\nmeal.setBun(\"gluten-free\");      // now gluten-free + bacon?\nmeal.setBacon(true);             // invalid combo -- who catches this?"
+    },
+    {
+      "id": "basic-builder",
+      "label": "Basic Builder",
+      "shortLabel": "Builder",
+      "icon": "\ud83c\udfd7\ufe0f",
+      "description": "Static inner class with fluent setters. build() validates and returns immutable Product. Clean, safe, extensible.",
+      "problems": [
+        "More boilerplate than setters (worth it for safety)",
+        "Repeated build recipes across codebase (Director fixes this)"
+      ],
+      "code": "Meal meal = new Meal.Builder()\n    .bun(\"sesame\")\n    .pattyCount(2)\n    .cheese(\"cheddar\")\n    .size(\"large\")\n    .build();  // validates + immutable!\n\n// Optional fields simply not called\nMeal simple = new Meal.Builder()\n    .bun(\"regular\")\n    .pattyCount(1)\n    .size(\"small\")\n    .build();\n\n// Cross-field validation in build()\n// gluten-free + bacon = IllegalStateException"
+    },
+    {
+      "id": "builder-director",
+      "label": "Builder + Director",
+      "shortLabel": "Director",
+      "icon": "\ud83d\udccb",
+      "description": "Director encapsulates reusable recipes. Clients use recipe names instead of repeating build sequences.",
+      "problems": [
+        "Director is optional overhead -- only add when recipes are reused",
+        "May over-abstract if recipes are trivial"
+      ],
+      "code": "class MealRecipes {\n    static Meal kidsMeal() {\n        return new Meal.Builder()\n            .bun(\"small-regular\").pattyCount(1)\n            .cheese(\"american\").sauce(\"ketchup\")\n            .size(\"small\").build();\n    }\n\n    static Meal gourmetBurger() {\n        return new Meal.Builder()\n            .bun(\"brioche\").pattyCount(2)\n            .cheese(\"gruyere\").bacon(true)\n            .sauce(\"truffle-mayo\").size(\"large\").build();\n    }\n}\n\n// Single source of truth\nMeal kids = MealRecipes.kidsMeal();\nMeal gourmet = MealRecipes.gourmetBurger();"
+    },
+    {
+      "id": "dsl",
+      "label": "DSL (Domain Specific Language)",
+      "shortLabel": "DSL",
+      "icon": "\u2728",
+      "description": "Builder evolves into a mini-language. SQL builders, Gradle scripts, Kotlin DSLs are all Builders that became languages.",
+      "problems": [
+        "Complexity of maintaining a grammar",
+        "Learning curve for DSL users",
+        "But this is how the most elegant APIs work"
+      ],
+      "code": "// SQL -- a Builder that evolved into a language\nSELECT name, email FROM users WHERE age > 18 ORDER BY name;\n\n// Kotlin DSL -- Builder expressed as language\nval meal = meal {\n    bun = \"sesame\"\n    pattyCount = 2\n    cheese = \"cheddar\"\n    toppings {\n        add(\"lettuce\")\n        add(\"tomato\")\n    }\n    sauce = \"BBQ\"\n    size = \"large\"\n}\n\n// Gradle -- Builder DSL for build configuration\ndependencies {\n    implementation(\"org.springframework:spring-core:5.3.0\")\n    testImplementation(\"junit:junit:4.13\")\n}"
+    }
+  ]
+}

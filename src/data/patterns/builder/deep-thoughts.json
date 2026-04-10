@@ -1,0 +1,117 @@
+[
+  {
+    "id": "dt1",
+    "question": "Why not just use a Map/Dictionary instead of a Builder? Both accumulate key-value pairs.",
+    "answer": "A Map gives you zero compile-time safety: wrong key names, wrong value types, missing keys -- all runtime errors. Builder gives you typed setters (setBun(String) vs map.put(\"bnu\", 42)), IDE autocomplete, and validation in build(). Maps are schema-less; Builders ARE the schema.",
+    "codeExample": "// Map: compiles fine, fails at runtime\nMap<String, Object> meal = new HashMap<>();\nmeal.put(\"bnu\", 42);  // typo + wrong type -- no compiler error\n\n// Builder: compiler catches everything\nMeal meal = new Meal.Builder()\n    .setBun(\"Sesame\")   // correct type enforced\n    .setPatties(2)      // int, not String\n    .build();           // validates completeness"
+  },
+  {
+    "id": "dt2",
+    "question": "When is Builder overkill? At what point should I just use a constructor?",
+    "answer": "If your object has 3 or fewer required fields and no optional ones, a constructor is fine. Builder adds value when: (A) you have 4+ fields, (B) many fields are optional, (C) you need validation across multiple fields, or (D) you want immutability without telescoping constructors. The threshold isn't about field count -- it's about cognitive load."
+  },
+  {
+    "id": "dt3",
+    "question": "If I call build() twice on the same Builder, do I get the same object or a new one?",
+    "answer": "Typically a NEW object each time -- build() calls new Product(this). But this is a design choice. If you want the same object, cache it. The real danger: if you mutate the builder BETWEEN builds, the second object differs. Document whether your builder is reusable or single-use.",
+    "codeExample": "Meal.Builder builder = new Meal.Builder().setBun(\"Sesame\").setPatties(2).setSize(\"Large\").setPrice(10.0);\nMeal m1 = builder.build();         // Meal with 2 patties\nbuilder.setPatties(3);             // mutate builder\nMeal m2 = builder.build();         // Meal with 3 patties -- different!\n\n// m1 != m2. Builder was reused. Is that intentional?"
+  },
+  {
+    "id": "dt4",
+    "question": "How do I make an immutable Builder? Why would I want one?",
+    "answer": "Each setter returns a NEW Builder instance instead of 'this'. This makes the builder itself immutable -- you can share a 'base' builder and derive variants without interference. Functional languages do this naturally. Cost: more object allocation. Benefit: thread-safe builder, shareable presets.",
+    "codeExample": "// Immutable Builder -- each setter returns a new Builder\nclass MealBuilder {\n    final String bun; final int patties;\n    MealBuilder(String bun, int patties) { this.bun = bun; this.patties = patties; }\n    MealBuilder withBun(String b) { return new MealBuilder(b, this.patties); }\n    MealBuilder withPatties(int p) { return new MealBuilder(this.bun, p); }\n}\n\n// Share a base, derive safely\nMealBuilder base = new MealBuilder(\"Sesame\", 1);\nMealBuilder large = base.withPatties(3);  // base unchanged!"
+  },
+  {
+    "id": "dt5",
+    "question": "What is a Step Builder and when should I use it?",
+    "answer": "A Step Builder uses interfaces to enforce setter ordering at compile time. setBun() returns a PattyStep interface, so you MUST call setPatties() next. Use it when: (A) build order matters (HTTP request: method before body), (B) later fields depend on earlier ones, or (C) you want to make invalid call sequences impossible. Downside: lots of interfaces.",
+    "codeExample": "// Step Builder: compiler enforces order\ninterface BunStep     { PattyStep setBun(String bun); }\ninterface PattyStep   { SauceStep setPatties(int n); }\ninterface SauceStep   { BuildStep setSauce(String s); }\ninterface BuildStep   { Meal build(); }\n\n// Usage: MUST follow order\nMeal m = MealBuilder.start()\n    .setBun(\"Sesame\")     // returns PattyStep\n    .setPatties(2)        // returns SauceStep\n    .setSauce(\"BBQ\")      // returns BuildStep\n    .build();\n\n// This WON'T COMPILE:\n// MealBuilder.start().setPatties(2)  // Error: setBun() not called yet"
+  },
+  {
+    "id": "dt6",
+    "question": "Builder + inheritance: if Meal has a subclass GourmetMeal, how does the builder work?",
+    "answer": "This is the 'Builder inheritance problem'. If GourmetMeal.Builder extends Meal.Builder, the parent's setters return Meal.Builder (not GourmetMeal.Builder), breaking chaining. Solutions: (A) Use generics with self-type: Builder<T extends Builder<T>>, (B) Override every setter in the child (verbose), or (C) Prefer composition over inheritance for builders.",
+    "codeExample": "// Solution: Recursive generics (self-type idiom)\nabstract class MealBuilder<T extends MealBuilder<T>> {\n    protected abstract T self();\n    T setBun(String bun) { this.bun = bun; return self(); }\n}\n\nclass GourmetMealBuilder extends MealBuilder<GourmetMealBuilder> {\n    protected GourmetMealBuilder self() { return this; }\n    GourmetMealBuilder setTruffle(boolean t) { this.truffle = t; return self(); }\n}\n\n// Now chaining works:\nnew GourmetMealBuilder().setBun(\"Brioche\").setTruffle(true).build();"
+  },
+  {
+    "id": "dt7",
+    "question": "Builder and Dependency Injection (Spring/Guice) -- do they coexist or compete?",
+    "answer": "They solve different problems. DI injects collaborators (services, repositories). Builder constructs value objects (DTOs, configs, requests). They compose well: a DI-injected service can use a Builder internally to create response objects. Never DI-inject a Builder -- it's a short-lived creation tool, not a singleton service.",
+    "codeExample": "@Service\nclass OrderService {\n    @Autowired PaymentGateway gateway;  // DI: injected collaborator\n\n    public Receipt processOrder(Order order) {\n        // Builder: constructs value object\n        PaymentRequest request = new PaymentRequest.Builder()\n            .setAmount(order.getTotal())\n            .setMethod(order.getPaymentMethod())\n            .build();\n        return gateway.charge(request);\n    }\n}"
+  },
+  {
+    "id": "dt8",
+    "question": "Can Builder and Factory be composed? When would you combine them?",
+    "answer": "Yes! Factory selects WHICH builder to use; Builder constructs the object. Example: NotificationBuilderFactory.create(\"email\") returns an EmailNotificationBuilder pre-configured for email. This is common when different product types need different builder configurations or validation rules.",
+    "codeExample": "class NotificationBuilderFactory {\n    static Notification.Builder create(String channel) {\n        return switch (channel) {\n            case \"email\" -> new Notification.Builder()\n                .setChannel(\"EMAIL\")\n                .setPriority(\"MEDIUM\");   // email defaults\n            case \"sms\" -> new Notification.Builder()\n                .setChannel(\"SMS\")\n                .setPriority(\"HIGH\");     // sms defaults\n            default -> throw new IllegalArgumentException(\"Unknown: \" + channel);\n        };\n    }\n}\n\n// Factory picks the right pre-configured builder\nNotification n = NotificationBuilderFactory.create(\"email\")\n    .setRecipient(\"user@test.com\")\n    .setSubject(\"Hello\")\n    .build();"
+  },
+  {
+    "id": "dt9",
+    "question": "Lombok @Builder is magic. What are its limitations compared to a hand-written builder?",
+    "answer": "Lombok @Builder: (A) No validation in build() -- it just assigns fields, (B) No Step Builder support, (C) No cross-field validation, (D) Inheritance is tricky (@SuperBuilder exists but has quirks), (E) Debugging generated code is harder. Use Lombok for simple DTOs. Hand-write builders when you need validation, ordering, or complex construction logic."
+  },
+  {
+    "id": "dt10",
+    "question": "Is a Builder thread-safe? Can two threads share a Builder instance?",
+    "answer": "Standard builders are NOT thread-safe. They use mutable state (the fields being set). If two threads call setters concurrently, you get race conditions. Solutions: (A) Don't share builders across threads (most common), (B) Use an immutable builder (each setter returns new instance), (C) Synchronize setters (defeats the purpose of fluent API)."
+  },
+  {
+    "id": "dt11",
+    "question": "Kotlin has named arguments and default values. Does Kotlin still need Builder pattern?",
+    "answer": "For data classes with named args, Builder is mostly unnecessary. But Builder still adds value for: (A) cross-field validation in build(), (B) incremental construction across method boundaries, (C) Java interop (Java can't use named args), (D) when construction involves side effects or computed defaults. In pure Kotlin, prefer data classes first.",
+    "codeExample": "// Kotlin named args -- no builder needed!\ndata class Meal(\n    val bun: String,\n    val patties: Int = 1,\n    val cheese: String = \"None\",\n    val sauce: String = \"Ketchup\"\n)\n\nval meal = Meal(bun = \"Sesame\", patties = 2, sauce = \"BBQ\")\n\n// But if you need validation, Builder still wins:\nclass MealBuilder {\n    // ...setters...\n    fun build(): Meal {\n        require(patties in 1..5) { \"Patties must be 1-5\" }\n        require(bun.isNotEmpty()) { \"Bun required\" }\n        return Meal(bun, patties, cheese, sauce)\n    }\n}"
+  },
+  {
+    "id": "dt12",
+    "question": "How do you handle nested objects in a Builder? E.g., Meal has an Address for delivery.",
+    "answer": "Three options: (A) Nested builder -- Meal.Builder has an AddressBuilder inside. (B) Accept a pre-built Address. (C) Lambda-based nested builder. Option C is the most elegant: setAddress(addr -> addr.setStreet(...).setCity(...)).",
+    "codeExample": "// Option C: Lambda-based nested builder\nclass MealBuilder {\n    private Address.Builder addressBuilder = new Address.Builder();\n\n    MealBuilder setAddress(Consumer<Address.Builder> config) {\n        config.accept(addressBuilder);\n        return this;\n    }\n}\n\n// Usage: clean nesting\nMeal meal = new Meal.Builder()\n    .setBun(\"Sesame\")\n    .setPatties(2)\n    .setAddress(addr -> addr\n        .setStreet(\"123 Main St\")\n        .setCity(\"Austin\")\n        .setZip(\"78701\"))\n    .build();"
+  },
+  {
+    "id": "dt13",
+    "question": "Should Builder fields have default values? What's the philosophy?",
+    "answer": "Yes, for truly optional fields. The principle: a Builder with ZERO setters called should either (A) produce a valid default object, or (B) fail fast in build() with clear error messages. Never silently produce an invalid object. Defaults should be safe, not surprising. Document them.",
+    "codeExample": "// Good: safe defaults + required fields validated\nclass MealBuilder {\n    private String bun;              // no default -- required\n    private int patties;             // no default -- required\n    private String cheese = \"None\"; // default: no cheese\n    private String sauce = \"Ketchup\"; // default: ketchup\n    private String size = \"Regular\"; // default: regular\n\n    Meal build() {\n        if (bun == null) throw ...; // required!\n        if (patties < 1) throw ...; // required!\n        return new Meal(this);       // optional fields have safe defaults\n    }\n}"
+  },
+  {
+    "id": "dt14",
+    "question": "Should the built Product expose getters? Or is it just a data bag?",
+    "answer": "The Product should expose what clients need -- no more, no less. If it's a DTO/value object, getters are fine. If it's a domain object, expose behaviors (meal.calculateCalories()) not raw fields (meal.getPatties()). Builder constructs; the Product should still follow good OO design."
+  },
+  {
+    "id": "dt15",
+    "question": "Builder for test data -- is that a valid use case?",
+    "answer": "One of the BEST use cases. Test Data Builders let you create objects with sensible defaults and override only what matters for each test. This makes tests readable, reduces setup boilerplate, and survives when new fields are added (defaults handle them).",
+    "codeExample": "// Test Data Builder with sensible defaults\nclass TestMealBuilder {\n    private String bun = \"Test Bun\";\n    private int patties = 1;\n    private String cheese = \"Test Cheese\";\n    private double price = 9.99;\n    // ... all fields have defaults\n\n    TestMealBuilder withPatties(int p) { this.patties = p; return this; }\n    Meal build() { return new Meal(bun, patties, cheese, price); }\n}\n\n// Test: only specify what THIS test cares about\n@Test void doublePattyMealCostsMore() {\n    Meal meal = new TestMealBuilder()\n        .withPatties(2)   // only this matters for this test\n        .build();\n    assertTrue(meal.getPrice() > 10.0);\n}"
+  },
+  {
+    "id": "dt16",
+    "question": "Can a Builder be reused after build() is called? Should it be?",
+    "answer": "Technically yes (just call setters again and build()). But it's risky: the builder retains state from the previous build, so forgetting to reset a field gives you bleed-through. Safest options: (A) throw if build() called twice, (B) reset all fields after build(), (C) document that builders are single-use. Most real-world builders are use-once-and-discard."
+  },
+  {
+    "id": "dt17",
+    "question": "How do you use generics with Builder pattern? E.g., a Response<T> builder.",
+    "answer": "The builder carries the generic type parameter. Builder<T> has a setData(T data) method and returns Response<T>. The trick: type inference works from the setter call, so you rarely need to specify T explicitly.",
+    "codeExample": "class Response<T> {\n    private final int status;\n    private final T data;\n    private final String message;\n\n    static <T> Builder<T> builder() { return new Builder<>(); }\n\n    static class Builder<T> {\n        private int status;\n        private T data;\n        private String message;\n\n        Builder<T> setStatus(int s) { this.status = s; return this; }\n        Builder<T> setData(T d) { this.data = d; return this; }\n        Builder<T> setMessage(String m) { this.message = m; return this; }\n        Response<T> build() { return new Response<>(status, data, message); }\n    }\n}\n\n// Type inferred from setData()\nResponse<List<String>> resp = Response.<List<String>>builder()\n    .setStatus(200)\n    .setData(List.of(\"a\", \"b\"))\n    .build();"
+  },
+  {
+    "id": "dt18",
+    "question": "How does serialization (JSON/XML) interact with Builder products?",
+    "answer": "Jackson/Gson need either: (A) a no-arg constructor + setters (breaks immutability), (B) @JsonDeserialize(builder = Meal.Builder.class) to deserialize via Builder, or (C) @JsonCreator on an all-args constructor. Option B is ideal -- JSON goes through the Builder, getting validation for free. Serialization (object to JSON) works fine with getters.",
+    "codeExample": "// Jackson: deserialize JSON through Builder\n@JsonDeserialize(builder = Meal.Builder.class)\nclass Meal {\n    // immutable fields...\n\n    @JsonPOJOBuilder(withPrefix = \"set\")\n    static class Builder {\n        // Jackson calls setters, then build()\n        // Validation happens automatically!\n    }\n}\n\n// JSON -> Builder -> validate -> Meal\nMeal meal = objectMapper.readValue(json, Meal.class);"
+  },
+  {
+    "id": "dt19",
+    "question": "Builder vs Prototype pattern -- both create objects. When do you pick which?",
+    "answer": "Builder: constructs from scratch, step by step. Use when you know the configuration at build time. Prototype: clones an existing object and modifies it. Use when you have a 'base' object and want variations. They can combine: build a prototype with a Builder, then clone it for variations.",
+    "codeExample": "// Builder: construct from scratch\nMeal base = new Meal.Builder()\n    .setBun(\"Sesame\").setPatties(2).setPrice(10.0).build();\n\n// Prototype: clone and modify\nMeal variation = base.clone();  // copy all fields\nvariation.setPrice(12.0);       // tweak one thing\n\n// Combined: Builder creates the prototype template\n// Cloning is faster for many similar objects"
+  },
+  {
+    "id": "dt20",
+    "question": "Director vs static factory methods that return pre-built objects. What's the difference?",
+    "answer": "Almost none in practice. A Director class (MealRecipes.kidsMeal()) and a static factory method (Meal.kidsMeal()) both encapsulate a build recipe. The GoF Director is a separate class that can be swapped (dependency injection) and can work with different builder implementations. Static factory methods are simpler but tightly coupled to one builder. Use Director when you need polymorphism; use static methods when you just want convenience.",
+    "codeExample": "// Director: separate class, swappable\nclass MealRecipes {\n    private MealBuilder builder; // can inject different builders!\n    Meal kidsMeal() { return builder.setBun(\"Small\").setPatties(1).build(); }\n}\n\n// Static factory method: simpler, coupled\nclass Meal {\n    static Meal kidsMeal() {\n        return new Builder().setBun(\"Small\").setPatties(1).build();\n    }\n}\n\n// In practice, static factory methods win 90% of the time.\n// Use Director only when you need to swap builder implementations."
+  }
+]

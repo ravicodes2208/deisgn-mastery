@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "problem": "E-Commerce / Shopping Cart",
+    "where": "Order construction from cart items, shipping, payment, and optional features",
+    "context": "CheckoutService",
+    "strategyInterface": "Order",
+    "concreteStrategies": ["DomesticOrderBuilder", "InternationalOrderBuilder", "GiftOrderBuilder"],
+    "why": "Orders have 10+ fields: items, address, payment, coupon, gift wrap, insurance, notes, delivery instructions. Most are optional. Price is computed. Cross-field validation needed (gift message requires gift wrap)."
+  },
+  {
+    "id": 2,
+    "problem": "Hotel Booking System",
+    "where": "Reservation construction from room selection, dates, and add-on services",
+    "context": "BookingService",
+    "strategyInterface": "Reservation",
+    "concreteStrategies": ["StandardReservationBuilder", "CorporateReservationBuilder", "HoneymoonPackageBuilder"],
+    "why": "Reservations have room type, check-in/out dates, guest count, meal plan, airport pickup, spa packages -- heavily customizable with date-based validation."
+  },
+  {
+    "id": 3,
+    "problem": "Food Delivery App (Swiggy)",
+    "where": "Custom meal/order construction with item customizations",
+    "context": "OrderService",
+    "strategyInterface": "CustomOrder",
+    "concreteStrategies": ["SingleItemBuilder", "ComboMealBuilder", "SubscriptionMealBuilder"],
+    "why": "Each food item is configurable: size, toppings, spice level, special instructions, dietary restrictions. Combinations need validation (vegan + cheese = invalid)."
+  },
+  {
+    "id": 4,
+    "problem": "Notification System",
+    "where": "Notification construction with channel-specific configuration",
+    "context": "NotificationDispatcher",
+    "strategyInterface": "Notification",
+    "concreteStrategies": ["PushNotificationBuilder", "EmailNotificationBuilder", "SMSNotificationBuilder"],
+    "why": "Notifications have title, body, optional image, optional action buttons (max 3), priority, scheduling, expiry. SMS can't have images. Expiry must be after schedule time."
+  },
+  {
+    "id": 5,
+    "problem": "Movie Ticket Booking (BookMyShow)",
+    "where": "Booking construction from show, seats, snacks, and optional add-ons",
+    "context": "BookingService",
+    "strategyInterface": "Booking",
+    "concreteStrategies": ["StandardBookingBuilder", "PremiumBookingBuilder", "GroupBookingBuilder"],
+    "why": "Bookings are assembled step by step: movie, showtime, seats, optional snacks, insurance, promo code. Seat count must match ticket count. Total is computed after discounts."
+  },
+  {
+    "id": 6,
+    "problem": "Ride-Sharing App (Uber)",
+    "where": "Ride request construction with pickup, dropoff, and ride preferences",
+    "context": "RideRequestService",
+    "strategyInterface": "RideRequest",
+    "concreteStrategies": ["StandardRideBuilder", "PoolRideBuilder", "ScheduledRideBuilder"],
+    "why": "Ride requests have pickup, dropoff, ride type, passenger count, pet-friendly, accessibility needs, scheduled time. Pool rides have max passenger limits. Scheduled rides need future timestamps."
+  },
+  {
+    "id": 7,
+    "problem": "Music Streaming (Spotify)",
+    "where": "Playlist construction from songs, metadata, and sharing preferences",
+    "context": "PlaylistService",
+    "strategyInterface": "Playlist",
+    "concreteStrategies": ["UserPlaylistBuilder", "AlgorithmicPlaylistBuilder", "CollaborativePlaylistBuilder"],
+    "why": "Playlists are built incrementally: add songs one by one, set name, description, cover image, collaborative flag, public/private. Songs must exist. Collaborative playlists need at least 2 members."
+  },
+  {
+    "id": 8,
+    "problem": "Logging Framework",
+    "where": "Log entry construction with structured context and metadata",
+    "context": "LoggerService",
+    "strategyInterface": "LogEntry",
+    "concreteStrategies": ["ApplicationLogBuilder", "AuditLogBuilder", "SecurityLogBuilder"],
+    "why": "Log entries need level, message, timestamp, optional context map, optional stack trace, optional tags, optional correlation ID. Audit logs require user ID. Security logs require IP address."
+  },
+  {
+    "id": 9,
+    "problem": "Payment Gateway",
+    "where": "Payment request construction with method-specific fields and validation",
+    "context": "PaymentService",
+    "strategyInterface": "PaymentRequest",
+    "concreteStrategies": ["CardPaymentBuilder", "UPIPaymentBuilder", "WalletPaymentBuilder"],
+    "why": "Payment requests have amount, currency, method, merchant ID, plus conditional fields: card requires token + billing address, UPI requires VPA. Immutability is critical -- no modification after build()."
+  },
+  {
+    "id": 10,
+    "problem": "Splitwise (Expense Sharing)",
+    "where": "Expense creation with variable participants and split logic",
+    "context": "ExpenseService",
+    "strategyInterface": "Expense",
+    "concreteStrategies": ["EqualSplitBuilder", "PercentageSplitBuilder", "ExactAmountBuilder"],
+    "why": "Expenses have amount, payer, split type, participants (variable count), category, notes, optional receipt. Percentage splits must total 100%. Exact splits must total the expense amount."
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "builder-for-everything",
+    "trap": "Builder for simple 2-3 field objects -- YAGNI",
+    "description": "Don't create a Builder when the object has 2-3 required fields and no optionals. A simple constructor is clearer. Builder is ceremony without value here.",
+    "badCode": "class Point {\n    static class Builder {\n        private int x, y;\n        Builder x(int x) { this.x = x; return this; }\n        Builder y(int y) { this.y = y; return this; }\n        Point build() { return new Point(x, y); }\n    }\n}\n// Usage: new Point.Builder().x(10).y(20).build();\n// WHY? Just use: new Point(10, 20);",
+    "goodCode": "// Just use a simple constructor\nclass Point {\n    final int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n}\n// Usage: new Point(10, 20); -- clean, direct, obvious",
+    "severity": "warning",
+    "fix": "Ask: 4+ fields? Optional fields? Cross-field validation? Computed fields? If NO to all, skip Builder."
+  },
+  {
+    "id": "no-validation-build",
+    "trap": "build() that just copies fields -- no validation",
+    "description": "If build() just does 'return new Product(this)' without any checks, you've written 50 lines of Builder boilerplate for zero safety benefit. You just have a complicated setter wrapper.",
+    "badCode": "public Meal build() {\n    return new Meal(this); // just copies -- no checks!\n    // gluten-free + bacon? No problem! (it IS a problem)\n    // zero patties? Sure! (that's not a meal)\n}",
+    "goodCode": "public Meal build() {\n    if (bun == null) throw new IllegalStateException(\"Bun is required!\");\n    if (pattyCount < 1) throw new IllegalStateException(\"At least 1 patty!\");\n    if (bun.equals(\"gluten-free\") && bacon)\n        throw new IllegalStateException(\"No bacon with gluten-free bun!\");\n    return new Meal(this);\n}",
+    "severity": "critical",
+    "fix": "build() MUST validate required fields, cross-field constraints, and computed values. That's the whole point of centralizing construction."
+  },
+  {
+    "id": "mutable-product",
+    "trap": "Product with setters -- defeats immutability guarantee",
+    "description": "If the Product has setters, anyone can modify it after build(). The Builder's promise of 'born perfect, forever final' is broken. Why use Builder if the product is mutable?",
+    "badCode": "class Meal {\n    private String cheese;\n    public void setCheese(String c) { this.cheese = c; } // public setter!\n}\n\nMeal m = new Meal.Builder().cheese(\"cheddar\").build();\nm.setCheese(\"swiss\"); // modified AFTER build! Builder was pointless.",
+    "goodCode": "class Meal {\n    private final String cheese; // final -- can't change after construction\n    // NO setter. Only getter.\n    public String getCheese() { return cheese; }\n}",
+    "severity": "critical",
+    "fix": "All Product fields must be final. No setters on the Product. Only getters. The Builder is the ONLY way to set values."
+  },
+  {
+    "id": "no-defensive-copy",
+    "trap": "Sharing mutable collections between Builder and Product",
+    "description": "If the Product's constructor copies the Builder's list by reference, mutating the Builder's list after build() corrupts the 'immutable' product.",
+    "badCode": "private Meal(Builder b) {\n    this.toppings = b.toppings; // SHARED reference!\n}\n// After build:\nbuilder.toppings.add(\"poison\"); // corrupts the built meal!",
+    "goodCode": "private Meal(Builder b) {\n    this.toppings = List.copyOf(b.toppings); // defensive copy!\n}\n// After build:\nbuilder.toppings.add(\"poison\"); // no effect on the meal",
+    "severity": "critical",
+    "fix": "Always use List.copyOf(), Map.copyOf(), or Collections.unmodifiable*() in the Product constructor. Final reference != immutable contents."
+  },
+  {
+    "id": "god-builder",
+    "trap": "One Builder creating multiple unrelated product types",
+    "description": "A Builder that builds meals AND drinks AND desserts based on flags is a God Builder. It violates SRP and has terrible type safety.",
+    "badCode": "class UniversalBuilder {\n    Builder setBun(String b) { ... }\n    Builder setDrinkSize(String s) { ... }\n    Builder setDessertFlavor(String f) { ... }\n    Object build() {\n        if (hasBun) return new Meal(this);\n        if (hasDrink) return new Drink(this);\n        return new Dessert(this); // returns Object -- no type safety\n    }\n}",
+    "goodCode": "// One Builder per Product. Always.\nMeal meal = new Meal.Builder().bun(\"sesame\").build();\nDrink drink = new Drink.Builder().size(\"large\").build();\nDessert dessert = new Dessert.Builder().flavor(\"chocolate\").build();",
+    "severity": "warning",
+    "fix": "One Builder per Product type. If build() returns Object or uses instanceof, you've gone wrong."
+  }
+]

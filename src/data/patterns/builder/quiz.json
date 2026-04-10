@@ -1,0 +1,80 @@
+[
+  {
+    "id": "q1",
+    "type": "recognition",
+    "question": "A travel booking system lets users build custom trip packages with flights, hotels, car rentals, activities, and insurance -- all optional except the destination. What pattern fits best?",
+    "options": [
+      "Builder -- step-by-step construction with optional parts and validation",
+      "Factory -- create the right trip type based on destination",
+      "Strategy -- swap trip planning algorithm at runtime",
+      "Decorator -- wrap trip with additional features"
+    ],
+    "correctAnswer": 0,
+    "explanation": "Many optional parts, step-by-step assembly, cross-field validation (car rental needs valid license), and the trip should be immutable once booked. Classic Builder."
+  },
+  {
+    "id": "q2",
+    "type": "comparison",
+    "question": "What's the key difference between Builder and Factory?",
+    "options": [
+      "Factory decides WHICH object to create. Builder decides HOW to configure one object.",
+      "Factory is for simple objects, Builder is for complex objects.",
+      "Factory uses interfaces, Builder uses abstract classes.",
+      "There is no real difference -- both create objects."
+    ],
+    "correctAnswer": 0,
+    "explanation": "Factory = WHICH type (one decision). Builder = HOW to build (many steps). Factory is a vending machine. Builder is a Subway sandwich counter."
+  },
+  {
+    "id": "q3",
+    "type": "debugging",
+    "question": "A Builder's build() method just does 'return new Product(this)' with no validation. What's the problem?",
+    "options": [
+      "No validation means invalid objects can be created -- Builder provides zero safety over plain setters",
+      "Nothing wrong -- validation is the Product's responsibility",
+      "The Builder should validate in each setter, not in build()",
+      "Validation should be done by the client, not the Builder"
+    ],
+    "correctAnswer": 0,
+    "explanation": "build() is where cross-field validation lives. Without it, you've written boilerplate for zero benefit. The Builder can create invalid products just like setters would."
+  },
+  {
+    "id": "q4",
+    "type": "design",
+    "question": "A Product class has final fields AND public setters. What's wrong?",
+    "options": [
+      "Setters on the Product defeat Builder's immutability guarantee -- remove all setters",
+      "Nothing -- final fields AND setters is a safety belt approach",
+      "Setters are fine as long as build() validated everything",
+      "Products should never have final fields"
+    ],
+    "correctAnswer": 0,
+    "explanation": "If the Product has setters, anyone can mutate it after build(). The promise of 'immutable once created' is broken. Final fields + no setters = true immutability."
+  },
+  {
+    "id": "q5",
+    "type": "application",
+    "question": "Two threads share a Builder instance. Thread A calls .cheese('cheddar'), Thread B calls .cheese('swiss'). What happens?",
+    "options": [
+      "Race condition -- the built product has unpredictable cheese. Don't share builders across threads.",
+      "Thread-safe -- Builder handles synchronization internally",
+      "No problem -- each thread gets its own copy",
+      "The Builder will throw a ConcurrentModificationException"
+    ],
+    "correctAnswer": 0,
+    "explanation": "Builders are NOT thread-safe by default. They're meant to be short-lived, local objects: create -> configure -> build -> discard. Never share across threads."
+  },
+  {
+    "id": "q6",
+    "type": "deep-thought",
+    "question": "Does Kotlin's named arguments + default values make Builder obsolete?",
+    "options": [
+      "Partially -- named args replace syntax but not validation, computed fields, or Director pattern",
+      "Yes -- Kotlin eliminates the need for Builder entirely",
+      "No -- Builder is always needed regardless of language features",
+      "Only for simple objects -- complex objects always need Builder"
+    ],
+    "correctAnswer": 0,
+    "explanation": "Named args replace Builder's SYNTAX (readability, optional params). But Builder's SEMANTICS remain valuable: cross-field validation in build(), computed fields, immutability guarantees, Director pattern for reusable recipes."
+  }
+]

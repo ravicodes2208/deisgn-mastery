@@ -1,0 +1,77 @@
+{
+  "title": "UML Diagrams",
+  "subtitle": "Interactive diagrams that build step-by-step",
+  "diagrams": [
+    {
+      "id": "builder-class",
+      "title": "Builder Pattern - Class Diagram",
+      "description": "Step-by-step construction of the Builder pattern showing Product, Builder, Director, and Client.",
+      "steps": [
+        {
+          "label": "Product",
+          "description": "The complex object being constructed with many fields",
+          "diagram": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +toString() String\n    }\n    note for Meal \"Complex object with\\nmany optional fields\""
+        },
+        {
+          "label": "+ Builder",
+          "description": "The Builder provides a fluent API to construct the Product step-by-step",
+          "diagram": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +toString() String\n    }\n    class MealBuilder {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +setPrice(price: double) MealBuilder\n        +build() Meal\n    }\n    MealBuilder ..> Meal : creates\n    note for MealBuilder \"Fluent API: each setter\\nreturns 'this' for chaining\""
+        },
+        {
+          "label": "+ Director",
+          "description": "The Director encapsulates common build recipes",
+          "diagram": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +toString() String\n    }\n    class MealBuilder {\n        -bun: String\n        -patties: int\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +setPrice(price: double) MealBuilder\n        +build() Meal\n    }\n    class MealRecipes {\n        +kidsMeal()$ Meal\n        +gourmetBurger()$ Meal\n        +veggieWrap()$ Meal\n    }\n    MealBuilder ..> Meal : creates\n    MealRecipes ..> MealBuilder : uses\n    note for MealRecipes \"Director knows WHAT to build\\nBuilder knows HOW to build\""
+        },
+        {
+          "label": "+ Client",
+          "description": "Client uses either the Director for presets or Builder directly for custom builds",
+          "diagram": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +toString() String\n    }\n    class MealBuilder {\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +setPrice(price: double) MealBuilder\n        +build() Meal\n    }\n    class MealRecipes {\n        +kidsMeal()$ Meal\n        +gourmetBurger()$ Meal\n        +veggieWrap()$ Meal\n    }\n    class OrderService {\n        +placeOrder(type: String) void\n    }\n    MealBuilder ..> Meal : creates\n    MealRecipes ..> MealBuilder : uses\n    OrderService --> MealRecipes : uses presets\n    OrderService --> MealBuilder : or builds custom"
+        }
+      ]
+    },
+    {
+      "id": "builder-director-class",
+      "title": "Builder with Director - Class Diagram",
+      "description": "Focus on the Director pattern: how the Director orchestrates the Builder to produce different configurations.",
+      "steps": [
+        {
+          "label": "Builder Interface",
+          "description": "Abstract builder interface that all concrete builders implement",
+          "diagram": "classDiagram\n    class MealBuilder {\n        <<interface>>\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    note for MealBuilder \"Interface allows\\nswappable builders\""
+        },
+        {
+          "label": "+ Concrete Builders",
+          "description": "Different builders can produce different representations",
+          "diagram": "classDiagram\n    class MealBuilder {\n        <<interface>>\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    class StandardMealBuilder {\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    class HealthyMealBuilder {\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    MealBuilder <|.. StandardMealBuilder\n    MealBuilder <|.. HealthyMealBuilder"
+        },
+        {
+          "label": "+ Director with Recipes",
+          "description": "Director uses any builder to construct pre-defined meals",
+          "diagram": "classDiagram\n    class MealBuilder {\n        <<interface>>\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    class StandardMealBuilder {\n        +build() Meal\n    }\n    class HealthyMealBuilder {\n        +build() Meal\n    }\n    class MealRecipes {\n        -builder: MealBuilder\n        +MealRecipes(builder: MealBuilder)\n        +kidsMeal() Meal\n        +gourmetBurger() Meal\n        +veggieWrap() Meal\n    }\n    MealBuilder <|.. StandardMealBuilder\n    MealBuilder <|.. HealthyMealBuilder\n    MealRecipes --> MealBuilder : delegates to\n    note for MealRecipes \"Same recipe, different builder\\n= different representation\""
+        }
+      ]
+    },
+    {
+      "id": "builder-sequence",
+      "title": "Builder Flow - Sequence Diagram",
+      "description": "Runtime flow: Client uses Builder to construct a Meal step-by-step, then calls build().",
+      "steps": [
+        {
+          "label": "Direct Builder Usage",
+          "description": "Client constructs a Meal directly using the Builder fluent API",
+          "diagram": "sequenceDiagram\n    participant C as Client\n    participant B as Meal.Builder\n    participant M as Meal\n\n    C->>B: new Builder()\n    activate B\n    C->>B: setBun(\"Sesame bun\")\n    B-->>C: this (Builder)\n    C->>B: setPatties(2)\n    B-->>C: this (Builder)\n    C->>B: setCheese(\"Cheddar\")\n    B-->>C: this (Builder)\n    C->>B: setSauce(\"BBQ\")\n    B-->>C: this (Builder)\n    C->>B: setSize(\"Large\")\n    B-->>C: this (Builder)\n    C->>B: build()\n    B->>B: validate fields\n    B->>M: new Meal(this)\n    activate M\n    M-->>B: meal instance\n    deactivate M\n    B-->>C: Meal (immutable)\n    deactivate B\n    Note over C: Meal is fully built\\nand immutable"
+        },
+        {
+          "label": "Director-Mediated Build",
+          "description": "Director orchestrates the Builder to produce a pre-configured Meal",
+          "diagram": "sequenceDiagram\n    participant C as Client\n    participant D as MealRecipes\n    participant B as Meal.Builder\n    participant M as Meal\n\n    C->>D: kidsMeal()\n    activate D\n    D->>B: new Builder()\n    activate B\n    D->>B: setBun(\"Small-regular bun\")\n    D->>B: setPatties(1)\n    D->>B: setCheese(\"American\")\n    D->>B: setSauce(\"Ketchup\")\n    D->>B: setSize(\"Small\")\n    D->>B: build()\n    B->>B: validate fields\n    B->>M: new Meal(this)\n    activate M\n    M-->>B: meal instance\n    deactivate M\n    B-->>D: Meal\n    deactivate B\n    D-->>C: Meal (kids)\n    deactivate D\n    Note over C: Client never touches\\nthe Builder directly"
+        },
+        {
+          "label": "Validation Failure",
+          "description": "What happens when build() detects invalid state",
+          "diagram": "sequenceDiagram\n    participant C as Client\n    participant B as Meal.Builder\n\n    C->>B: new Builder()\n    activate B\n    C->>B: setPatties(1)\n    B-->>C: this (Builder)\n    C->>B: build()\n    B->>B: validate: bun is null!\n    B--xC: IllegalStateException\n    deactivate B\n    Note over C: build() is the\\nsingle validation gate\\nNo partial objects leak"
+        }
+      ]
+    }
+  ]
+}

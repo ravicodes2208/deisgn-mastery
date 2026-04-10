@@ -1,0 +1,136 @@
+{
+  "title": "Flashcards",
+  "subtitle": "Spaced repetition for long-term retention",
+  "decks": [
+    {
+      "id": "core-concepts",
+      "title": "Core Concepts",
+      "icon": "🎯",
+      "cards": [
+        {
+          "id": "fc-1",
+          "front": "What is the ONE sentence definition of Builder Pattern?",
+          "back": "Separate the construction of a complex object from its representation -- use a staging area (Builder) to configure step-by-step, validate in build(), and produce an immutable Product.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-2",
+          "front": "What are the 4 participants in Builder pattern?",
+          "back": "1. Product -- the complex immutable object (Meal)\n2. Builder -- staging area with fluent setters (Meal.Builder)\n3. Director -- reusable recipes (MealRecipes.kidsMeal())\n4. Client -- creates Builder, configures, calls build()",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-3",
+          "front": "What is the 'magic line' that enables fluent API in Builder?",
+          "back": "'return this;' in every setter method. It returns the Builder itself, enabling method chaining: builder.bun(\"sesame\").cheese(\"cheddar\").build()",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-4",
+          "front": "Why must the Product's constructor be private?",
+          "back": "To prevent bypassing the Builder. If the constructor were public, someone could create an invalid, unvalidated Product directly. Private constructor = only Builder can create it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc-5",
+          "front": "Why validate in build() instead of in each setter?",
+          "back": "Because cross-field validations (gluten-free + bacon) need the COMPLETE picture. In a setter, other fields may not be set yet. build() sees ALL fields at once and can validate any combination.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "brain-triggers",
+      "title": "Pattern Recognition",
+      "icon": "🧠",
+      "cards": [
+        {
+          "id": "fc-6",
+          "front": "Constructor with 8+ parameters, half of them null or false. Pattern?",
+          "back": "Builder. Replace telescoping constructor with fluent setters. Optional fields simply aren't called. No more null/false chains.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-7",
+          "front": "Object needs to be immutable after creation, but construction is multi-step. Pattern?",
+          "back": "Builder. The Builder is mutable (staging area). The Product is immutable (final fields, no setters). build() is the gate between mutable draft and immutable result.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc-8",
+          "front": "'If gluten-free bun, bacon is not available.' Where does this validation live?",
+          "back": "In build(). Cross-field constraints can only be validated when ALL fields are known. build() has the complete picture and validates atomically before creating the Product.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc-9",
+          "front": "SQL query: SELECT...FROM...WHERE...ORDER BY...LIMIT. Is this Builder?",
+          "back": "YES. SQL is a Builder that evolved into a DSL. Each clause adds to the query step-by-step. The query is 'built' and then executed. Query builders in code (JOOQ, QueryDSL) are explicit Builder pattern.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc-10",
+          "front": "Payment request needs amount + currency (required), card token (required IF card), billing address (required IF card). How?",
+          "back": "Builder with conditional validation in build(). if method == 'card' && cardToken == null -> throw. Builder handles conditional requirements naturally because build() sees the full picture.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "anti-patterns",
+      "title": "Anti-Patterns & Traps",
+      "icon": "⚠️",
+      "cards": [
+        {
+          "id": "fc-11",
+          "front": "Product has final fields AND public setters. What's wrong?",
+          "back": "Setters on Product defeat Builder's immutability guarantee. If you can mutate after build(), Builder was pointless. Remove all setters. Only getters on Product.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc-12",
+          "front": "this.items = builder.items in Product constructor. What's the bug?",
+          "back": "Shared mutable reference! Mutating builder.items after build() corrupts the 'immutable' Product. Fix: this.items = List.copyOf(builder.items); -- defensive copy.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc-13",
+          "front": "Builder for a Point(x, y) class. Good idea?",
+          "back": "NO. Over-engineering. Point has 2 required fields, no optionals, no validation. new Point(10, 20) is cleaner. Builder earns its place with 4+ fields, optionals, or cross-field validation.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-14",
+          "front": "Is Lombok @Builder a real Builder pattern?",
+          "back": "Partially. It generates fluent syntax but has NO validation in build(), NO Director, NO computed fields. It's a code generator, not a design pattern. Customize build() for real Builder.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "solid-connections",
+      "title": "SOLID Connections",
+      "icon": "🔗",
+      "cards": [
+        {
+          "id": "fc-15",
+          "front": "How does Builder relate to SRP?",
+          "back": "Product holds data. Builder handles construction. Director knows recipes. Three concerns, three classes. Each has one reason to change.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc-16",
+          "front": "How does Builder relate to OCP?",
+          "back": "Add 'spice level'? Add one setter to Builder. Zero existing client code breaks. Old code that never called .spiceLevel() still compiles. Open for extension, closed for modification.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc-17",
+          "front": "How does Builder relate to DIP?",
+          "back": "Director depends on MealBuilder interface, not ConcreteVegMealBuilder. Add 50 new builders tomorrow -- Director never changes. High-level policy (Director) depends on abstraction (Builder interface).",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

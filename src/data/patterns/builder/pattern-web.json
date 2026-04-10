@@ -1,0 +1,39 @@
+{
+  "bestFriends": [
+    {
+      "pattern": "Factory",
+      "relationship": "Factory decides WHICH type to create. Builder decides HOW to configure it. They combine when you need to both select a type AND configure it with many options.",
+      "example": "NotificationFactory picks PushNotificationBuilder. Builder configures title, body, image, action buttons, scheduling."
+    },
+    {
+      "pattern": "Strategy",
+      "relationship": "Builder constructs the object. Strategy goes INSIDE the object as a behavioral component. The product contains a strategy that was set during building.",
+      "example": "OrderBuilder sets .pricingStrategy(new DynamicPricing()). The built Order uses that strategy for price calculations."
+    },
+    {
+      "pattern": "Composite",
+      "relationship": "When the product is a tree structure, Builder assembles the tree node by node. Builder handles construction complexity, Composite handles structural complexity.",
+      "example": "UILayoutBuilder adds panels, each panel has children. The built UILayout is a Composite tree."
+    }
+  ],
+  "evilTwin": {
+    "pattern": "Factory",
+    "similarity": "Both are creational patterns that encapsulate object creation from the client.",
+    "difference": "Factory answers WHICH type to create (one decision, one call). Builder answers HOW to configure a complex object (many steps, fluent API, validation at end). Factory = vending machine (press button, get product). Builder = Subway sandwich (step by step, wrapped at end).",
+    "mnemonic": "Factory = WHICH type. Builder = HOW to build.",
+    "deferredComparison": false,
+    "note": "Factory returns a ready-to-use object in one call. Builder requires multiple configuration steps before build(). Factory selects among types. Builder configures one type with many options."
+  },
+  "evolution": [
+    {
+      "pattern": "Director Pattern",
+      "direction": "Basic Builder evolves to Builder + Director when you need reusable recipes. Director encapsulates common build sequences so clients don't repeat themselves.",
+      "when": "When the same builder configuration appears in 2+ places -- extract into a Director method."
+    },
+    {
+      "pattern": "DSL (Domain Specific Language)",
+      "direction": "Builder evolves into a DSL when the build process has complex grammar rules. SQL query builders, Gradle build scripts, and Kotlin DSLs are Builders that evolved into languages.",
+      "when": "When builder steps have ordering rules, nesting, and the configuration starts feeling like a mini-language."
+    }
+  ]
+}

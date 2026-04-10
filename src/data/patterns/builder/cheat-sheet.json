@@ -1,0 +1,70 @@
+{
+  "cheatSheet": {
+    "whenToUse": [
+      "4+ constructor parameters with many optional",
+      "Cross-field validation needed before object creation",
+      "Object must be immutable after construction",
+      "Construction has a specific sequence or rules",
+      "Same construction process needs to create different representations",
+      "You need computed/derived fields calculated from other fields"
+    ],
+    "whenNotToUse": [
+      "Only 2-3 required fields, zero optional (YAGNI)",
+      "No cross-field validation needed",
+      "Object is intentionally mutable (setters are fine)",
+      "Creation is trivial -- just new X(a, b)",
+      "Kotlin/Python named arguments solve your readability problem"
+    ],
+    "structure": {
+      "Product": "The complex immutable object with final fields and private constructor (Meal)",
+      "Builder": "Static inner class with fluent setters returning 'this', and build() with validation (Meal.Builder)",
+      "Director (optional)": "Encapsulates reusable build recipes (MealRecipes.kidsMeal(builder))",
+      "Client": "Creates Builder, configures via fluent API, calls build()"
+    },
+    "sixWordSummary": "Stage it. Validate it. Build it.",
+    "solidPrinciples": [
+      "SRP (primary)",
+      "OCP (primary)",
+      "LSP",
+      "ISP",
+      "DIP"
+    ],
+    "codeSmellTrigger": "Constructor with 5+ parameters, half of them null or false"
+  },
+  "bestPractices": [
+    "All Product fields final -- enforce immutability via compiler",
+    "Product constructor private -- only Builder can create it",
+    "build() validates ALL constraints -- required fields, cross-field rules, ranges",
+    "Return 'this' from every setter -- enables fluent chaining",
+    "Defensive copy collections in Product constructor -- List.copyOf(), not direct reference",
+    "Use Optional<T> for optional getters in Java -- force caller to handle absence",
+    "Separate Builder per Product type -- never a God Builder",
+    "Extract repeated build sequences into Director methods"
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Product has setters, allowing mutation after build()",
+      "correct": "All fields final, no setters. Only getters. Builder is the sole path to creation."
+    },
+    {
+      "mistake": "build() just copies fields with no validation",
+      "correct": "build() must validate required fields, cross-field constraints, and compute derived values."
+    },
+    {
+      "mistake": "Sharing mutable collection references between Builder and Product",
+      "correct": "Defensive copy: this.items = List.copyOf(builder.items); in Product constructor."
+    },
+    {
+      "mistake": "Builder for simple 2-field objects (Point, Coordinate)",
+      "correct": "Use plain constructor for simple objects. Builder earns its place with 4+ fields, optionals, or validation."
+    },
+    {
+      "mistake": "Passing Builder around to multiple methods, losing track of state",
+      "correct": "Create -> configure -> build in one fluent chain. Don't let builders wander."
+    },
+    {
+      "mistake": "Confusing Builder (HOW to configure complex object) with Factory (WHICH type to create)",
+      "correct": "Factory picks the type in one call. Builder configures step-by-step. Combine when you need both."
+    }
+  ]
+}

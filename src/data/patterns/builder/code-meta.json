@@ -1,0 +1,47 @@
+{
+  "flavors": {
+    "classic": {
+      "label": "Classic Builder + Director",
+      "icon": "\ud83c\udfd7\ufe0f",
+      "steps": [
+        {
+          "step": 1,
+          "title": "Define the Product (Meal)",
+          "description": "The Meal class has all fields final with a private constructor. Only the Builder can create it. No setters -- only getters. This is the FORTRESS of immutability."
+        },
+        {
+          "step": 2,
+          "title": "Create the Builder (Staging Area)",
+          "description": "Meal.Builder is a static inner class. ALL fields set via fluent setters that return 'this'. No constructor parameters -- everything via setters. Optional fields default to null/false."
+        },
+        {
+          "step": 3,
+          "title": "Implement build() with Validation",
+          "description": "build() is the GATEKEEPER. It checks required fields (bun, size), validates cross-field constraints (gluten-free + bacon), and computes derived values (price). Returns new Meal(this)."
+        },
+        {
+          "step": 4,
+          "title": "Add Director for Reusable Recipes",
+          "description": "MealRecipes class has static methods like kidsMeal() and gourmetBurger() that use the Builder internally. Clients call recipes instead of repeating build chains."
+        }
+      ],
+      "languages": {
+        "java": {
+          "file": "builder.java",
+          "title": "Builder Pattern - Meal System (Java)",
+          "explanation": "Java uses a static inner class as Builder -- 'static' means it doesn't need a Meal instance to exist (essential since Builder creates Meal, not the other way around). Private constructor on Meal ensures only Builder can instantiate. All fields final. Fluent API via 'return this'. build() centralizes all validation. Director class provides reusable recipes."
+        },
+        "cpp": {
+          "file": "builder.cpp",
+          "title": "Builder Pattern - Meal System (C++)",
+          "explanation": "C++ uses a nested class with 'friend class Meal' for access to private constructor. Returns '*this' (dereferenced) for chaining instead of Java's 'this'. std::optional<std::string> for truly optional fields. Validation in build() throws std::invalid_argument. RAII handles cleanup automatically."
+        },
+        "kotlin": {
+          "file": "builder.kt",
+          "title": "Builder Pattern - Meal System (Kotlin)",
+          "explanation": "Kotlin shows two approaches: (1) Classic Builder using apply{} instead of 'return this' -- apply runs the block and returns 'this' automatically. (2) DSL Builder using lambda-with-receiver (Builder.() -> Unit) for configuration-block syntax. Nested classes in Kotlin are static by default (no 'static' keyword needed). require() for validation is more idiomatic than if-throw."
+        }
+      }
+    }
+  }
+}

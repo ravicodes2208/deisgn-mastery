@@ -1,0 +1,42 @@
+[
+  {
+    "principle": "SRP",
+    "fullName": "Single Responsibility Principle",
+    "isPrimary": true,
+    "connection": "Product holds data. Builder handles construction. Director knows recipes. Three concerns, three classes. The Product never knows HOW it was built.",
+    "example": "Meal only stores bun, cheese, price. Meal.Builder handles step-by-step assembly and validation. MealRecipes knows how to build a kids meal vs gourmet burger.",
+    "icon": "🎯"
+  },
+  {
+    "principle": "OCP",
+    "fullName": "Open/Closed Principle",
+    "isPrimary": true,
+    "connection": "Add 'spice level' tomorrow? Add one setter to Builder. Zero existing client code breaks. Old code that never called .spiceLevel() still works -- it just uses the default.",
+    "example": "50 services call Meal.Builder. Adding .spiceLevel() changes only the Builder class. All 50 services compile and run unchanged.",
+    "icon": "🔓"
+  },
+  {
+    "principle": "LSP",
+    "fullName": "Liskov Substitution Principle",
+    "isPrimary": false,
+    "connection": "Swap VegMealBuilder for NonVegMealBuilder -- the Director works identically. Any builder conforming to the MealBuilder interface can be substituted without breaking the build process.",
+    "example": "Director.prepareMeal(builder) works with VegBuilder, NonVegBuilder, KetoBuilder -- all honor the same contract.",
+    "icon": "🔀"
+  },
+  {
+    "principle": "ISP",
+    "fullName": "Interface Segregation Principle",
+    "isPrimary": false,
+    "connection": "Don't force a SimpleBurgerBuilder to implement setKidsToySurprise(). Split builder interfaces by what different products actually need: BurgerBuilder, MealComboBuilder, KidsMealBuilder.",
+    "example": "SimpleBurgerBuilder implements BurgerBuilder (bun, patty, cheese). HappyMealBuilder implements KidsMealBuilder extends BurgerBuilder + setToy().",
+    "icon": "✂️"
+  },
+  {
+    "principle": "DIP",
+    "fullName": "Dependency Inversion Principle",
+    "isPrimary": false,
+    "connection": "Director depends on the Builder abstraction, not on ConcreteVegMealBuilder. Add 50 new builders tomorrow -- the Director never changes.",
+    "example": "Director codes against MealBuilder interface. VegMealBuilder, NonVegMealBuilder, KetoMealBuilder all implement it. Director is decoupled from all concrete builders.",
+    "icon": "🔄"
+  }
+]

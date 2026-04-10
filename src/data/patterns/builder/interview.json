@@ -1,0 +1,133 @@
+{
+  "title": "Interview Prep",
+  "subtitle": "Simulate a real design interview. Write your answer, rate yourself, get scored.",
+  "scenarios": [
+    {
+      "id": "ecommerce-order",
+      "title": "Design an E-Commerce Order System",
+      "context": "You're in a system design interview at a tech company. The interviewer says:",
+      "interviewerPrompt": "Design the order creation flow for an e-commerce platform like Amazon. An order has items, shipping address, payment method, optional coupon code, optional gift wrapping, optional delivery instructions, optional insurance, and a computed total. Some combinations are invalid. Walk me through your design.",
+      "steps": [
+        {
+          "id": "eo-1",
+          "phase": "Clarify Requirements",
+          "interviewer": "What are the key constraints for order creation?",
+          "goodAnswer": "Let me clarify: (1) Which fields are required vs optional? Items, address, payment are required. Coupon, gift wrap, insurance, delivery notes are optional. (2) Is the order immutable after creation? Yes -- once placed, it shouldn't be modifiable directly. (3) Are there cross-field constraints? Gift message requires gift wrap to be true. Insurance has amount limits based on order total. (4) Is the total computed? Yes -- from items + shipping - coupon + insurance.",
+          "keyInsight": "Asking about required vs optional, immutability, and cross-field validation sets up Builder perfectly.",
+          "redFlag": "Jumping to a constructor with 10 parameters.",
+          "followUps": [
+            {
+              "probe": "Good questions. Yes, immutable after creation, and gift message requires gift wrap.",
+              "strongResponse": "Perfect -- immutability plus cross-field validation plus many optional fields. This is a textbook Builder pattern scenario. I'll use a static inner Builder class with fluent API and centralized validation in build()."
+            },
+            {
+              "probe": "How would you handle order modifications after creation?",
+              "strongResponse": "Once built, the Order is immutable. For modifications, I'd create a NEW order via the Builder, potentially using the existing order's data as a starting template -- like a copy-with-modifications approach."
+            }
+          ]
+        },
+        {
+          "id": "eo-2",
+          "phase": "Identify the Pattern",
+          "interviewer": "How would you structure the Order creation code?",
+          "goodAnswer": "I'd use the Builder pattern. Order has required fields (items, address, payment) and many optional fields (coupon, gift wrap, insurance, notes). The total is computed from other fields. Cross-field validation (gift message needs gift wrap) must happen atomically. The Builder collects all choices via fluent setters, validates everything in build(), computes the total, and returns an immutable Order.",
+          "keyInsight": "Name the pattern explicitly and list WHY it fits: optional fields, computed fields, cross-field validation, immutability.",
+          "code": "public final class Order {\n    private final List<Item> items;\n    private final Address shippingAddress;\n    private final PaymentMethod payment;\n    private final String couponCode;\n    private final boolean giftWrap;\n    private final String giftMessage;\n    private final boolean insurance;\n    private final String deliveryNotes;\n    private final double total;  // COMPUTED\n\n    private Order(Builder b) { /* copy from builder */ }\n\n    public static class Builder {\n        // All via setters -- no constructor params\n        private List<Item> items;\n        private Address shippingAddress;\n        private PaymentMethod payment;\n        private String couponCode = null;\n        private boolean giftWrap = false;\n        private String giftMessage = null;\n        private boolean insurance = false;\n        private String deliveryNotes = null;\n\n        public Builder items(List<Item> i) { this.items = i; return this; }\n        public Builder shippingAddress(Address a) { this.shippingAddress = a; return this; }\n        // ... more setters ...\n\n        public Order build() {\n            if (items == null || items.isEmpty())\n                throw new IllegalStateException(\"Order needs items\");\n            if (shippingAddress == null)\n                throw new IllegalStateException(\"Shipping address required\");\n            if (giftMessage != null && !giftWrap)\n                throw new IllegalStateException(\"Gift message requires gift wrap\");\n            return new Order(this);\n        }\n    }\n}",
+          "redFlag": "Using setters on Order directly, or a 10-parameter constructor.",
+          "followUps": [
+            {
+              "probe": "Why not just use a constructor with 8 parameters?",
+              "strongResponse": "Three problems: (1) 8 params, 5 optional -- callers pass null for everything they don't need. (2) No cross-field validation without a complex constructor body. (3) Adding 'delivery speed' tomorrow changes every existing constructor call. Builder handles all three: optional fields omitted, validation in build(), new fields zero breakage."
+            },
+            {
+              "probe": "How is the total computed?",
+              "strongResponse": "In the private Order constructor, called by build(). total = sum(item prices) + shippingCost(address) - couponDiscount + insurancePremium. The caller never sets total manually -- it's derived from other fields. This is a key Builder advantage: computed fields that depend on the complete configuration."
+            }
+          ]
+        },
+        {
+          "id": "eo-3",
+          "phase": "Handle Edge Cases",
+          "interviewer": "What about different order types -- domestic, international, gift orders?",
+          "goodAnswer": "Two approaches: (1) Composition -- the same Builder with optional fields like internationalCustomsInfo, giftWrapStyle. Different Director recipes create different order types. (2) Builder hierarchy -- DomesticOrderBuilder, InternationalOrderBuilder with type-specific validation. I'd start with approach 1 (simpler) and evolve to 2 only if the builders diverge significantly.",
+          "keyInsight": "Starting simple and evolving shows pragmatism. Don't over-engineer from day one.",
+          "redFlag": "Creating separate Order subclasses for each type (class explosion).",
+          "followUps": [
+            {
+              "probe": "What if international orders have completely different validation rules?",
+              "strongResponse": "Then approach 2 -- separate builders with shared base. InternationalOrderBuilder validates customs declarations, export restrictions. DomesticOrderBuilder validates state tax. Both produce the same Order product. Factory selects the right builder based on shipping country."
+            }
+          ]
+        },
+        {
+          "id": "eo-4",
+          "phase": "Production Concerns",
+          "interviewer": "Any thread safety or performance concerns?",
+          "goodAnswer": "Builders should be short-lived, local objects: create -> configure -> build -> discard. Never share a Builder across threads. The built Order is immutable, so it's inherently thread-safe -- can be passed between threads freely. For performance, defensive copies in the constructor (List.copyOf) are negligible for typical order sizes. If orders have 10,000+ items, consider lazy immutable wrappers.",
+          "keyInsight": "Builder = local and short-lived. Product = immutable and shareable. This separation IS the thread safety story.",
+          "redFlag": "Suggesting synchronized builders or thread-safe setter methods.",
+          "followUps": [
+            {
+              "probe": "What about reusing a builder to create multiple similar orders?",
+              "strongResponse": "Each build() call should create an independent Order with defensive copies. The Builder can be reused: build() once, modify the builder, build() again. But the two Orders must be completely independent -- no shared mutable references. List.copyOf() in the constructor guarantees this."
+            }
+          ]
+        }
+      ],
+      "summary": "You demonstrated: pattern recognition (Builder for optional fields + validation + immutability), clean API design (fluent Builder with centralized validation), computed field handling, practical thread safety reasoning, and evolution path (single builder -> Director -> separate builders). Strong Hire signal."
+    },
+    {
+      "id": "notification-builder",
+      "title": "Design a Notification Builder",
+      "context": "You're interviewing at a messaging platform. The interviewer presents a whiteboard scenario:",
+      "interviewerPrompt": "Design a notification system where notifications have a title, body, channel (push/email/SMS), optional image, optional action buttons (max 3), priority, scheduling time, and expiry time. Some channels don't support all fields. Walk me through the creation flow.",
+      "steps": [
+        {
+          "id": "nb-1",
+          "phase": "Recognize the Pattern",
+          "interviewer": "How would you design the notification creation API?",
+          "goodAnswer": "Builder pattern. Many optional fields (image, buttons, scheduling, expiry), cross-field constraints (SMS can't have images, expiry must be after scheduled time, max 3 buttons), and the notification should be immutable once dispatched. I'd combine with Factory: Factory picks the right builder variant per channel, Builder configures it.",
+          "keyInsight": "Combining Factory + Builder for channel-specific validation is a senior-level insight.",
+          "code": "Notification notif = Notification.builder()\n    .title(\"Order Shipped\")\n    .body(\"Your laptop is on the way\")\n    .channel(Channel.PUSH)\n    .image(\"laptop.png\")\n    .addActionButton(\"Track\", \"/track/123\")\n    .addActionButton(\"Help\", \"/support\")\n    .priority(Priority.HIGH)\n    .scheduleAt(tomorrow9AM)\n    .expiresAt(tomorrowEOD)\n    .build();",
+          "redFlag": "A single constructor with all fields, or a Notification class with setters.",
+          "followUps": [
+            {
+              "probe": "How do you handle channel-specific constraints?",
+              "strongResponse": "In build(), validate based on channel: if SMS, reject image and buttons. If email, buttons become clickable links. If push, enforce max 3 buttons. All validation centralized in one method with the complete picture of all fields."
+            }
+          ]
+        },
+        {
+          "id": "nb-2",
+          "phase": "Design the Validation",
+          "interviewer": "Show me the build() method with all validations.",
+          "goodAnswer": "build() validates: (1) Required fields: title and body non-null. (2) Channel constraints: SMS rejects image and buttons. (3) Button limit: max 3 action buttons. (4) Time constraints: expiresAt must be after scheduledAt, both must be in the future. (5) Content limits: SMS body max 160 chars. Each violation throws with a specific message.",
+          "code": "public Notification build() {\n    if (title == null) throw new IllegalStateException(\"Title required\");\n    if (body == null) throw new IllegalStateException(\"Body required\");\n    if (channel == null) throw new IllegalStateException(\"Channel required\");\n\n    // Channel-specific constraints\n    if (channel == Channel.SMS) {\n        if (image != null) throw new IllegalStateException(\"SMS doesn't support images\");\n        if (!actionButtons.isEmpty()) throw new IllegalStateException(\"SMS doesn't support buttons\");\n        if (body.length() > 160) throw new IllegalStateException(\"SMS body max 160 chars\");\n    }\n\n    // Button limit\n    if (actionButtons.size() > 3)\n        throw new IllegalStateException(\"Max 3 action buttons\");\n\n    // Time validation\n    if (expiresAt != null && scheduledAt != null && expiresAt.isBefore(scheduledAt))\n        throw new IllegalStateException(\"Expiry must be after schedule time\");\n\n    return new Notification(this);\n}",
+          "keyInsight": "Specific error messages for each constraint help debugging. Not just 'invalid notification' but WHICH field violates WHICH rule.",
+          "redFlag": "A single boolean isValid() method that returns true/false with no details.",
+          "followUps": [
+            {
+              "probe": "What if we want to collect ALL validation errors instead of failing on the first one?",
+              "strongResponse": "Great idea for user-facing APIs. Collect errors in a List<String> during build(), then throw a ValidationException containing all errors. User sees: 'SMS doesn't support images AND body exceeds 160 chars' instead of fixing one, rebuilding, finding the next."
+            }
+          ]
+        },
+        {
+          "id": "nb-3",
+          "phase": "Scale & Evolution",
+          "interviewer": "How does this design handle adding WhatsApp as a new channel next month?",
+          "goodAnswer": "Builder's OCP shines here. Add WhatsApp-specific validation rules to build() -- or better, create channel-specific builder subclasses. WhatsAppNotificationBuilder allows images and buttons (like push) but adds WhatsApp-specific fields like template ID and business account. Factory returns the right builder: NotificationFactory.createBuilder('whatsapp') returns WhatsAppNotificationBuilder. Existing code that builds push/email/SMS notifications is completely untouched.",
+          "keyInsight": "New channel = new builder + factory update. Zero changes to existing builders or client code.",
+          "redFlag": "Modifying the existing Notification class to add WhatsApp-specific fields.",
+          "followUps": [
+            {
+              "probe": "What about Director for common notification templates?",
+              "strongResponse": "Absolutely. NotificationTemplates.orderShipped(orderId) creates the full notification with pre-configured title, body template, image, and buttons. Marketing team gets NotificationTemplates.promotionalOffer(product). Each template is a Director method that uses the Builder internally. Single source of truth for notification content."
+            }
+          ]
+        }
+      ],
+      "summary": "You demonstrated: pattern recognition (Builder for optional + channel constraints), Factory + Builder composition, comprehensive validation design, error collection strategy, and evolution handling (new channels via new builders). Strong Hire."
+    }
+  ]
+}

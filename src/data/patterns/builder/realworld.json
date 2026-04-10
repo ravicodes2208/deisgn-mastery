@@ -1,0 +1,67 @@
+{
+  "title": "Real-World Gallery",
+  "subtitle": "Builder pattern in production code you use every day",
+  "examples": [
+    {
+      "id": "java-string-builder",
+      "title": "Java StringBuilder",
+      "source": "java.lang.StringBuilder",
+      "sourceUrl": "https://docs.oracle.com/javase/8/docs/api/java/lang/StringBuilder.html",
+      "icon": "☕",
+      "category": "JDK",
+      "description": "The most used Builder in Java. Append strings step by step, call toString() to get the final immutable String. StringBuilder is mutable, String is immutable.",
+      "code": "// StringBuilder IS a Builder. toString() IS build().\nString result = new StringBuilder()\n    .append(\"Hello, \")\n    .append(user.getName())\n    .append(\"! You have \")\n    .append(count)\n    .append(\" new messages.\")\n    .toString();  // build() -> immutable String\n\n// Without Builder:\nString result = \"Hello, \" + user.getName() + \"! You have \" + count + \" new messages.\";\n// Creates 4 intermediate String objects (immutable = new object each +)",
+      "lesson": "StringBuilder is the OG Builder. Mutable staging area -> immutable product. Every Java developer uses Builder daily without realizing it."
+    },
+    {
+      "id": "java-stream",
+      "title": "Java Stream API",
+      "source": "java.util.stream.Stream",
+      "icon": "🌊",
+      "category": "JDK",
+      "description": "Stream operations (filter, map, sorted) build a pipeline step by step. collect() or toList() is the build() call that produces the final result.",
+      "code": "// Stream pipeline IS a Builder pattern!\nList<String> result = users.stream()       // create builder\n    .filter(u -> u.isActive())              // configure step 1\n    .map(User::getName)                     // configure step 2\n    .sorted()                               // configure step 3\n    .collect(Collectors.toList());           // build() -> produce result\n\n// Nothing executes until collect() (terminal operation = build())\n// The pipeline is a LAZY BUILDER -- configures without executing.",
+      "lesson": "Stream pipeline = lazy Builder. Intermediate operations configure. Terminal operation = build(). Nothing happens until you 'build' the result."
+    },
+    {
+      "id": "okhttp-request",
+      "title": "OkHttp Request.Builder",
+      "source": "okhttp3.Request.Builder",
+      "icon": "🌐",
+      "category": "Library",
+      "description": "Every HTTP request in OkHttp is built via Builder. URL, headers, body, method -- configured step by step, validated at build().",
+      "code": "// OkHttp uses Builder for every HTTP request\nRequest request = new Request.Builder()\n    .url(\"https://api.example.com/users\")\n    .addHeader(\"Authorization\", \"Bearer \" + token)\n    .addHeader(\"Content-Type\", \"application/json\")\n    .post(RequestBody.create(json, JSON))\n    .build();  // validates URL, creates immutable Request\n\n// Why Builder? HTTP requests have:\n// - Required: URL\n// - Optional: headers, body, tags, cache control\n// - Constraints: POST needs body, GET can't have body\n// - Immutable after creation (thread-safe for async dispatch)",
+      "lesson": "OkHttp processes millions of requests. Every one is built via Builder. If it's good enough for OkHttp, it's good enough for your code."
+    },
+    {
+      "id": "protobuf-builder",
+      "title": "Protocol Buffers (Protobuf) Builder",
+      "source": "com.google.protobuf",
+      "icon": "📦",
+      "category": "Library",
+      "description": "Every Protobuf message in Google's ecosystem is created via Builder. Messages are immutable by design. Builder is the only way to create them.",
+      "code": "// Protobuf messages are ALWAYS built via Builder\nPerson person = Person.newBuilder()\n    .setName(\"Alice\")\n    .setId(123)\n    .setEmail(\"alice@example.com\")\n    .addPhones(\n        Person.PhoneNumber.newBuilder()   // nested Builder!\n            .setNumber(\"+1-555-0100\")\n            .setType(Person.PhoneType.MOBILE)\n            .build()\n    )\n    .build();\n\n// person is IMMUTABLE. To modify, create a new builder from it:\nPerson updated = person.toBuilder()\n    .setEmail(\"alice.new@example.com\")\n    .build();",
+      "lesson": "Google uses Builder for ALL inter-service communication via Protobuf. Billions of messages per day, every one built via Builder. Immutability at Google scale."
+    },
+    {
+      "id": "lombok-builder",
+      "title": "Lombok @Builder",
+      "source": "lombok.Builder",
+      "icon": "🌶️",
+      "category": "Library",
+      "description": "Lombok generates Builder boilerplate from an annotation. Convenient but missing validation -- customize build() for real Builder pattern.",
+      "code": "// Lombok generates the entire Builder class\n@Builder\n@Value  // makes all fields final + private + getters\npublic class Notification {\n    String title;\n    String body;\n    String channel;\n    String image;\n    Priority priority;\n}\n\n// Generated usage:\nNotification n = Notification.builder()\n    .title(\"Hello\")\n    .body(\"World\")\n    .channel(\"push\")\n    .priority(Priority.HIGH)\n    .build();\n\n// To add validation, partially define the builder:\npublic static class NotificationBuilder {\n    public Notification build() {\n        if (title == null) throw new IllegalStateException(\"Title required\");\n        return new Notification(title, body, channel, image, priority);\n    }\n}",
+      "lesson": "Lombok gives you Builder SYNTAX. For Builder SEMANTICS (validation, computed fields), customize build() by partially defining the inner class."
+    },
+    {
+      "id": "java-http-client",
+      "title": "Java 11 HttpClient & HttpRequest",
+      "source": "java.net.http.HttpClient / HttpRequest",
+      "icon": "🔌",
+      "category": "JDK",
+      "description": "Java 11's built-in HTTP client uses Builder for both the client configuration and individual requests. Two-level Builder.",
+      "code": "// Level 1: Build the HTTP client (reusable)\nHttpClient client = HttpClient.newBuilder()\n    .version(HttpClient.Version.HTTP_2)\n    .connectTimeout(Duration.ofSeconds(10))\n    .followRedirects(HttpClient.Redirect.NORMAL)\n    .build();\n\n// Level 2: Build each request\nHttpRequest request = HttpRequest.newBuilder()\n    .uri(URI.create(\"https://api.example.com/data\"))\n    .header(\"Accept\", \"application/json\")\n    .GET()\n    .build();\n\n// Two Builders, two products, used together\nHttpResponse<String> response = client.send(request, BodyHandlers.ofString());",
+      "lesson": "Even the JDK uses Builder extensively. HttpClient.newBuilder() and HttpRequest.newBuilder() are the standard Java way to make HTTP calls."
+    }
+  ]
+}

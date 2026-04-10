@@ -1,0 +1,73 @@
+{
+  "title": "Refactoring Challenge",
+  "subtitle": "Apply the Builder pattern yourself. Fix the bad code.",
+  "challenges": [
+    {
+      "id": "extract-builder",
+      "difficulty": "Easy",
+      "difficultyColor": "green",
+      "title": "Extract a Builder from Telescoping Constructor",
+      "description": "This Order class has a 10-parameter constructor. Refactor it to use Builder pattern with fluent API and validation.",
+      "timeEstimate": "5-10 minutes",
+      "hints": [
+        "Create a static inner Builder class",
+        "Move all parameters to fluent setters",
+        "Add validation in build()"
+      ],
+      "starterCode": "// REFACTOR: 10-parameter constructor -- unreadable, fragile\nclass Order {\n    private String customerId;\n    private List<String> items;\n    private String shippingAddress;\n    private String paymentMethod;\n    private String couponCode;\n    private boolean giftWrap;\n    private String giftMessage;\n    private boolean insurance;\n    private String deliveryNotes;\n    private double total;\n\n    Order(String customerId, List<String> items, String shippingAddress,\n          String paymentMethod, String couponCode, boolean giftWrap,\n          String giftMessage, boolean insurance, String deliveryNotes,\n          double total) {\n        this.customerId = customerId;\n        this.items = items;\n        // ... assign all 10 fields ...\n    }\n}\n\n// Usage -- which parameter is which?\nnew Order(\"C123\", items, \"Mumbai\", \"UPI\", null, false, null, false, null, 999.0);",
+      "solutionCode": "final class Order {\n    private final String customerId;\n    private final List<String> items;\n    private final String shippingAddress;\n    private final String paymentMethod;\n    private final String couponCode;\n    private final boolean giftWrap;\n    private final String giftMessage;\n    private final boolean insurance;\n    private final String deliveryNotes;\n    private final double total;\n\n    private Order(Builder b) {\n        this.customerId = b.customerId;\n        this.items = List.copyOf(b.items);\n        this.shippingAddress = b.shippingAddress;\n        this.paymentMethod = b.paymentMethod;\n        this.couponCode = b.couponCode;\n        this.giftWrap = b.giftWrap;\n        this.giftMessage = b.giftMessage;\n        this.insurance = b.insurance;\n        this.deliveryNotes = b.deliveryNotes;\n        this.total = b.total;\n    }\n\n    public static class Builder {\n        private String customerId;\n        private List<String> items;\n        private String shippingAddress;\n        private String paymentMethod;\n        private String couponCode;\n        private boolean giftWrap;\n        private String giftMessage;\n        private boolean insurance;\n        private String deliveryNotes;\n        private double total;\n\n        public Builder customerId(String id) { this.customerId = id; return this; }\n        public Builder items(List<String> i) { this.items = i; return this; }\n        public Builder shippingAddress(String a) { this.shippingAddress = a; return this; }\n        public Builder paymentMethod(String p) { this.paymentMethod = p; return this; }\n        public Builder couponCode(String c) { this.couponCode = c; return this; }\n        public Builder giftWrap(boolean g) { this.giftWrap = g; return this; }\n        public Builder giftMessage(String m) { this.giftMessage = m; return this; }\n        public Builder insurance(boolean i) { this.insurance = i; return this; }\n        public Builder deliveryNotes(String n) { this.deliveryNotes = n; return this; }\n        public Builder total(double t) { this.total = t; return this; }\n\n        public Order build() {\n            if (customerId == null) throw new IllegalStateException(\"Customer ID required\");\n            if (items == null || items.isEmpty()) throw new IllegalStateException(\"Items required\");\n            if (shippingAddress == null) throw new IllegalStateException(\"Address required\");\n            if (giftMessage != null && !giftWrap)\n                throw new IllegalStateException(\"Gift message requires gift wrap\");\n            return new Order(this);\n        }\n    }\n}",
+      "validationChecks": [
+        "Builder is a static inner class",
+        "Product constructor is private",
+        "All fields are final",
+        "build() has validation",
+        "Fluent API (return this)"
+      ]
+    },
+    {
+      "id": "add-immutability",
+      "difficulty": "Medium",
+      "difficultyColor": "yellow",
+      "title": "Fix Immutability Leaks",
+      "description": "This Builder creates a 'immutable' Product, but there are 3 immutability leaks. Find and fix them all.",
+      "timeEstimate": "10-15 minutes",
+      "hints": [
+        "Check if collections are defensively copied",
+        "Check if Product has any setters",
+        "Check if getters return mutable references"
+      ],
+      "starterCode": "class Notification {\n    private final String title;\n    private final String body;\n    private final List<String> tags;  // is this truly immutable?\n    private String priority;          // wait... not final?\n\n    Notification(Builder b) {         // not private!\n        this.title = b.title;\n        this.body = b.body;\n        this.tags = b.tags;           // shared reference!\n        this.priority = b.priority;\n    }\n\n    public void setPriority(String p) { this.priority = p; }  // setter!\n    public List<String> getTags() { return tags; }             // mutable list!\n\n    static class Builder {\n        String title, body, priority;\n        List<String> tags = new ArrayList<>();\n        Builder title(String t) { title = t; return this; }\n        Builder body(String b) { body = b; return this; }\n        Builder priority(String p) { priority = p; return this; }\n        Builder addTag(String t) { tags.add(t); return this; }\n        Notification build() { return new Notification(this); }\n    }\n}",
+      "solutionCode": "final class Notification {\n    private final String title;\n    private final String body;\n    private final List<String> tags;\n    private final String priority;           // FIX 1: make final\n\n    private Notification(Builder b) {        // FIX 2: make private\n        this.title = b.title;\n        this.body = b.body;\n        this.tags = List.copyOf(b.tags);     // FIX 3: defensive copy\n        this.priority = b.priority;\n    }\n\n    // FIX 4: remove setter\n    // public void setPriority -- DELETED\n\n    public String getTitle() { return title; }\n    public String getBody() { return body; }\n    public List<String> getTags() { return tags; }  // already immutable from List.copyOf\n    public String getPriority() { return priority; }\n\n    static class Builder {\n        private String title, body, priority;\n        private final List<String> tags = new ArrayList<>();\n        Builder title(String t) { title = t; return this; }\n        Builder body(String b) { body = b; return this; }\n        Builder priority(String p) { priority = p; return this; }\n        Builder addTag(String t) { tags.add(t); return this; }\n        Notification build() {\n            if (title == null) throw new IllegalStateException(\"Title required\");\n            return new Notification(this);\n        }\n    }\n}",
+      "validationChecks": [
+        "All fields are final",
+        "Constructor is private",
+        "Collections use List.copyOf()",
+        "No setters on Product",
+        "build() has validation"
+      ]
+    },
+    {
+      "id": "builder-plus-factory",
+      "difficulty": "Hard",
+      "difficultyColor": "red",
+      "title": "Combine Builder + Factory for Notifications",
+      "description": "Design a system where Factory picks the right Builder based on notification channel, and each Builder has channel-specific validation. Push supports images, SMS doesn't. Email supports HTML body, SMS is plain text only.",
+      "timeEstimate": "15-20 minutes",
+      "hints": [
+        "Create a NotificationBuilder interface with common setters",
+        "PushBuilder, EmailBuilder, SmsBuilder implement it with channel-specific rules",
+        "NotificationFactory.createBuilder(channel) returns the right builder",
+        "Each build() validates channel constraints"
+      ],
+      "starterCode": "// DESIGN THIS: Factory + Builder composition\n// Requirements:\n// - Push: supports title, body, image, action buttons (max 3), priority\n// - Email: supports title, body (HTML), CC, BCC, attachments\n// - SMS: supports body only (max 160 chars), no title, no image\n//\n// Factory picks the right builder based on channel.\n// Each builder validates its channel's constraints.\n// Built Notification is immutable.\n//\n// Usage should look like:\n// Notification n = NotificationFactory.createBuilder(\"push\")\n//     .title(\"Order Shipped\")\n//     .body(\"Your laptop is on the way\")\n//     .image(\"laptop.png\")\n//     .build();",
+      "solutionCode": "interface NotificationBuilder {\n    NotificationBuilder title(String t);\n    NotificationBuilder body(String b);\n    Notification build();\n}\n\nclass PushBuilder implements NotificationBuilder {\n    private String title, body, image;\n    private List<String> buttons = new ArrayList<>();\n    private String priority = \"normal\";\n\n    public PushBuilder title(String t) { this.title = t; return this; }\n    public PushBuilder body(String b) { this.body = b; return this; }\n    public PushBuilder image(String i) { this.image = i; return this; }\n    public PushBuilder addButton(String btn) { buttons.add(btn); return this; }\n    public PushBuilder priority(String p) { this.priority = p; return this; }\n\n    public Notification build() {\n        if (title == null) throw new IllegalStateException(\"Push needs title\");\n        if (body == null) throw new IllegalStateException(\"Push needs body\");\n        if (buttons.size() > 3) throw new IllegalStateException(\"Max 3 buttons\");\n        return new Notification(\"push\", title, body, image, List.copyOf(buttons), priority);\n    }\n}\n\nclass SmsBuilder implements NotificationBuilder {\n    private String body;\n\n    public SmsBuilder title(String t) {\n        // SMS doesn't support title -- ignore or warn\n        return this;\n    }\n    public SmsBuilder body(String b) { this.body = b; return this; }\n\n    public Notification build() {\n        if (body == null) throw new IllegalStateException(\"SMS needs body\");\n        if (body.length() > 160) throw new IllegalStateException(\"SMS max 160 chars\");\n        return new Notification(\"sms\", null, body, null, List.of(), \"normal\");\n    }\n}\n\nclass NotificationFactory {\n    static NotificationBuilder createBuilder(String channel) {\n        return switch(channel.toLowerCase()) {\n            case \"push\" -> new PushBuilder();\n            case \"sms\" -> new SmsBuilder();\n            default -> throw new IllegalArgumentException(\"Unknown: \" + channel);\n        };\n    }\n}",
+      "validationChecks": [
+        "Factory returns channel-specific builder",
+        "Each builder validates channel constraints",
+        "SMS rejects title and limits body to 160",
+        "Push allows image and buttons (max 3)",
+        "Built Notification is immutable"
+      ]
+    }
+  ]
+}

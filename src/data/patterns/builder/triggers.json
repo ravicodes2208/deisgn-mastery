@@ -1,0 +1,58 @@
+{
+  "description": "When you hear these keywords in a problem statement, your brain should instantly light up with 'Builder pattern!'",
+  "triggers": [
+    {
+      "keyword": "optional fields / some required some optional",
+      "example": "Notification with optional image, optional action buttons, optional scheduling",
+      "isStrategy": true
+    },
+    {
+      "keyword": "configurable / customizable",
+      "example": "Users can customize their meal with various toppings and sizes",
+      "isStrategy": true
+    },
+    {
+      "keyword": "step-by-step construction",
+      "example": "Build the query step by step: select, from, where, orderBy",
+      "isStrategy": true
+    },
+    {
+      "keyword": "fluent API / method chaining",
+      "example": "request.url('/api').header('Auth', token).body(json).build()",
+      "isStrategy": true
+    },
+    {
+      "keyword": "complex object with many parameters",
+      "example": "Order has items, shipping address, payment, coupon, gift wrap, insurance, notes",
+      "isStrategy": true
+    },
+    {
+      "keyword": "immutable once created",
+      "example": "Payment request must be final and unmodifiable after construction",
+      "isStrategy": true
+    },
+    {
+      "keyword": "cross-field validation before creation",
+      "example": "If gluten-free bun, bacon is not available. Card payment requires billing address",
+      "isStrategy": true
+    }
+  ],
+  "notStrategy": [
+    {
+      "keyword": "based on type / create different types at runtime",
+      "pattern": "Factory",
+      "reason": "That's selecting WHICH type to create, not configuring HOW to build one type. Factory = WHICH. Builder = HOW."
+    },
+    {
+      "keyword": "swap behavior on an existing object",
+      "pattern": "Strategy",
+      "reason": "Strategy swaps algorithms on an existing context. Builder creates a NEW object step by step."
+    },
+    {
+      "keyword": "clone an existing object with modifications",
+      "pattern": "Prototype",
+      "reason": "Prototype copies from an existing object. Builder constructs from scratch."
+    }
+  ],
+  "litmusTest": "If the QUESTION is 'how do I construct this complex object with many optional parts, validate it, and make it immutable?' -- think Builder."
+}

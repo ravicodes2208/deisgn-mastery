@@ -1,0 +1,10 @@
+{
+  "id": "builder",
+  "title": "Builder Pattern",
+  "category": "creational",
+  "phase": "design-patterns",
+  "order": 3,
+  "icon": "🏗️",
+  "description": "Separate complex object construction from its representation. Use a staging area (Builder) to configure step-by-step, then produce the final immutable object via build() with full validation. Two flavors: Classic Builder (static inner class with fluent API) and Director + Builder (reusable recipes with interchangeable builders).",
+  "estimatedTime": "2-3 hours"
+}

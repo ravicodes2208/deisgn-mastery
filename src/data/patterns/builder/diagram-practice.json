@@ -1,0 +1,24 @@
+{
+  "templates": [
+    {
+      "id": "classic-builder-class",
+      "label": "Classic Builder",
+      "code": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +toString() String\n    }\n    class MealBuilder {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        -price: double\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +setPrice(price: double) MealBuilder\n        +build() Meal\n    }\n    MealBuilder ..> Meal : creates"
+    },
+    {
+      "id": "builder-director-class",
+      "label": "Builder + Director",
+      "code": "classDiagram\n    class Meal {\n        -bun: String\n        -patties: int\n        -cheese: String\n        -sauce: String\n        -size: String\n        +toString() String\n    }\n    class MealBuilder {\n        +setBun(bun: String) MealBuilder\n        +setPatties(n: int) MealBuilder\n        +setCheese(cheese: String) MealBuilder\n        +setSauce(sauce: String) MealBuilder\n        +setSize(size: String) MealBuilder\n        +build() Meal\n    }\n    class MealRecipes {\n        +kidsMeal()$ Meal\n        +gourmetBurger()$ Meal\n        +veggieWrap()$ Meal\n    }\n    MealBuilder ..> Meal : creates\n    MealRecipes ..> MealBuilder : uses"
+    },
+    {
+      "id": "builder-sequence",
+      "label": "Sequence Diagram",
+      "code": "sequenceDiagram\n    participant C as Client\n    participant B as Meal.Builder\n    participant M as Meal\n\n    C->>B: new Builder()\n    activate B\n    C->>B: setBun(\"Sesame bun\")\n    B-->>C: this (Builder)\n    C->>B: setPatties(2)\n    B-->>C: this (Builder)\n    C->>B: setCheese(\"Cheddar\")\n    B-->>C: this (Builder)\n    C->>B: build()\n    B->>B: validate fields\n    B->>M: new Meal(this)\n    activate M\n    M-->>B: meal instance\n    deactivate M\n    B-->>C: Meal (immutable)\n    deactivate B"
+    },
+    {
+      "id": "empty",
+      "label": "Blank Canvas",
+      "code": "classDiagram\n    %% Start drawing your Builder UML here!\n    %% Try: class Product { -field1: String }\n    %% Then: class Builder { +setField1(v) Builder +build() Product }\n"
+    }
+  ]
+}

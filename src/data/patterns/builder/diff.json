@@ -1,0 +1,60 @@
+{
+  "title": "Before vs After",
+  "subtitle": "See exactly what changes when you apply Builder Pattern",
+  "scenarios": [
+    {
+      "id": "telescoping-constructor",
+      "title": "Object Creation -- Telescoping vs Builder",
+      "description": "15 constructor parameters with 9 false values vs clean fluent Builder API.",
+      "before": {
+        "label": "Telescoping Constructor (unreadable, fragile)",
+        "language": "java",
+        "highlights": [3, 4, 5, 6],
+        "code": "class OrderService {\n    Order createOrder(Cart cart, User user) {\n        // Which parameter is which? Nobody knows.\n        return new Order(cart.getItems(), user.getAddress(),\n            user.getPayment(), null, false, null,\n            false, null, 0.0, \"standard\",\n            null, false, LocalDate.now());\n        // null = no coupon? false = no gift wrap?\n        // 0.0 = no insurance? Who can tell?\n        // Add 'delivery notes' = every call breaks.\n    }\n}"
+      },
+      "after": {
+        "label": "Builder -- Self-Documenting, Extensible",
+        "language": "java",
+        "highlights": [3, 4, 5, 6, 7, 8],
+        "code": "class OrderService {\n    Order createOrder(Cart cart, User user) {\n        return new Order.Builder()\n            .items(cart.getItems())\n            .shippingAddress(user.getAddress())\n            .paymentMethod(user.getPayment())\n            .deliveryType(\"standard\")\n            .build();  // validates, computes total, immutable\n        // Optional fields just aren't called.\n        // Add 'delivery notes'? Add one method. Zero breakage.\n    }\n}"
+      },
+      "insight": "Every parameter is named. Optional fields are simply omitted. New fields don't break existing code."
+    },
+    {
+      "id": "mutable-vs-immutable",
+      "title": "Object Safety -- Mutable Setters vs Immutable Builder",
+      "description": "Setters allow modification at any time. Builder produces final, validated objects.",
+      "before": {
+        "label": "Mutable Setters (unsafe, no completion guarantee)",
+        "language": "java",
+        "highlights": [2, 3, 7, 8],
+        "code": "// No guarantee of completeness\nOrder order = new Order();\norder.setItems(items);       // is it valid yet? NO\n// ... passed to another method mid-construction ...\norder.setAddress(addr);      // still incomplete...\norder.setPayment(card);\n// Someone later:\norder.setPayment(null);      // MUTATED after 'done'!\norder.setItems(emptyList()); // ORDER CORRUPTED"
+      },
+      "after": {
+        "label": "Builder -- Validated and Immutable",
+        "language": "java",
+        "highlights": [2, 3, 4, 5, 6],
+        "code": "// Guaranteed complete, validated, immutable\nOrder order = new Order.Builder()\n    .items(items)\n    .shippingAddress(addr)\n    .paymentMethod(card)\n    .build();  // validates all fields, computes total\n// order.setPayment(null);  // COMPILE ERROR -- no setters!\n// order.setItems(empty);   // COMPILE ERROR -- fields are final!\n// Once built, NOTHING can corrupt this order."
+      },
+      "insight": "Builder: mutable BEFORE build(), immutable AFTER. Setters: mutable FOREVER. Builder gives you a clear 'done' moment."
+    },
+    {
+      "id": "validation-scattered-vs-centralized",
+      "title": "Validation -- Scattered vs Centralized in build()",
+      "description": "Cross-field validation scattered across setters vs centralized in one build() method.",
+      "before": {
+        "label": "Scattered Validation (incomplete, order-dependent)",
+        "language": "java",
+        "highlights": [3, 4, 8, 9],
+        "code": "class PaymentRequest {\n    void setMethod(String method) {\n        this.method = method;\n        // Can't validate cardToken here -- it hasn't been set yet!\n    }\n\n    void setCardToken(String token) {\n        this.cardToken = token;\n        // Can't validate vs method -- what if method changes later?\n    }\n    // Validation is IMPOSSIBLE in setters because\n    // fields depend on each other and order is unknown.\n}"
+      },
+      "after": {
+        "label": "Centralized in build() -- Complete Picture",
+        "language": "java",
+        "highlights": [7, 8, 9, 10, 11],
+        "code": "class PaymentRequest {\n    static class Builder {\n        // ... fluent setters ...\n\n        PaymentRequest build() {\n            // ALL fields are set. Full picture available.\n            if (amount == null) throw new IllegalStateException(\"Amount required\");\n            if (\"card\".equals(method) && cardToken == null)\n                throw new IllegalStateException(\"Card payment needs token\");\n            if (\"card\".equals(method) && billingAddress == null)\n                throw new IllegalStateException(\"Card needs billing address\");\n            if (\"upi\".equals(method) && upiId == null)\n                throw new IllegalStateException(\"UPI needs VPA ID\");\n            return new PaymentRequest(this);\n        }\n    }\n}"
+      },
+      "insight": "build() sees ALL fields at once. Cross-field validation is trivial. No order dependency. No incomplete checks."
+    }
+  ]
+}
